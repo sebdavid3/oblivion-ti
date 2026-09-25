@@ -1,0 +1,40 @@
+\section{Formatos y serializaci\'on}
+\label{sec:formatos}
+C\'omo se guardan y c\'omo viajan los datos, con nombres y tipos exactos para
+que cualquiera pueda programarlo sin adivinar.
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}l X@{}}
+\toprule
+Objeto & Campos exactos \\
+\midrule
+\code{catalog.json} &
+\code{catalog\_id} (id \'unico), \code{version} (texto, p.~ej. ``v1''),
+\code{group\_id} (texto), \code{N} (n\'umero),
+\code{record\_len} $=256$, \code{sha256\_root} (huella en hex) y
+\code{records}: lista de \code{record\_id} (texto), \code{idx} de
+$[1,N]$, \code{nonce} (b64) y \code{ct} (b64). \\
+\code{OTRequest} &
+\code{protocol} (texto, p.~ej. ``bs-ot-v1''),
+\code{catalog\_version} (texto), \code{sid} (hex de 16\,B) y
+\code{u\_b64} (punto del grupo en b64url de 32\,B).
+\textbf{El \'indice $i$ nunca viaja en claro.} \\
+\code{OTResponse} &
+\code{sid} (hex), \code{v\_b64} (punto en b64url de 32\,B) y
+\code{encaps}: lista de \code{idx} (n\'umero), \code{nonce} (b64) y
+\code{ct} (b64). \\
+\bottomrule
+\end{tabularx}
+\caption{Formatos con versi\'on. Los puntos del grupo van en b64url de 32\,B.}
+\end{table}
+
+Reglas: el dato asociado es $AAD=\mathsf{ctx}\Vert sid\Vert j$ (ata el
+cat\'alogo, la sesi\'on y el \'indice);
+el $sid$ es nuevo cada vez (p.~ej. \code{os.urandom(16)}) y si se repite se
+rechaza; si el punto $u$ viene mal formado (no can\'onico, negativo, $y{=}0$
+o no cuadrado, App.~A.2 de RFC~9496) o la versi\'on no coincide, se rechaza;
+el mapa p\'ublico de \code{record\_id} a n\'umero \code{idx} no cambia dentro
+de la misma versi\'on.
+% TODO(equipo): fijar b64 est\'andar frente a url-safe y documentarlo.

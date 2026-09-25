@@ -1,0 +1,27 @@
+\section{Propiedades de seguridad}
+\label{sec:propiedades}
+Nombres que usamos desde aqu\'i (ver Secci\'on~\ref{sec:protocolo}):
+$N$ es el tama\~no del cat\'alogo, $i\in[1,N]$ el \'indice elegido,
+$K_j$ la clave del registro $j$,
+$\mathsf{ctx}=\mathit{catalog\_id}\Vert\mathit{version}\Vert\mathit{group\_id}$
+el contexto (qu\'e cat\'alogo, qu\'e versi\'on, qu\'e grupo) y
+$sid\in\{0,1\}^{128}$ el n\'umero de sesi\'on.
+
+\begin{enumerate}
+\item \textbf{El servidor no sabe qu\'e pediste.}
+Para cualquier par $i,j$ lo que ve el servidor es indistinguible:
+$\mathrm{Vista}_S(i)\approx \mathrm{Vista}_S(j)$.
+En nuestro protocolo $u=g^\alpha v^{-i}$ con $\alpha$ nuevo parece un
+elemento al azar del grupo, as\'i que esconde $i$ por completo.
+\item \textbf{El cliente solo abre uno.}
+El cliente aprende $K_i$ y nada de las dem\'as $\{K_{j\ne i}\}$.
+Si pudiera sacar dos claves, estar\'ia resolviendo el problema
+Diffie-Hellman (argumento $v^\beta=g^{\beta^2}$, Ej.~10.17 del libro),
+adem\'as de romper la derivaci\'on de claves y el cifrado.
+\item \textbf{Si algo se modifica, se detecta.}
+Cualquier cambio en $C_j$, $E_j$, $\mathsf{ctx}$, $sid$ o $j$ hace que el
+descifrado falle (error \code{InvalidTag}), porque el dato asociado
+$AAD=\mathsf{ctx}\Vert sid\Vert j$ y la huella $\mathrm{sha256}$ del
+cat\'alogo ya no coinciden.
+\end{enumerate}
+% TODO(equipo): no demostrar aqu\'i; las razones van en S4.

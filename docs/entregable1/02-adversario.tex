@@ -1,0 +1,36 @@
+\section{Modelo de adversario}
+\label{sec:adversario}
+Aqu\'i definimos contra qui\'en nos defendemos: qu\'e puede intentar cada
+parte y qu\'e queda fuera del trabajo (ver exclusiones del enunciado).
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+Actor & Se porta as\'i & Qu\'e intenta \\
+\midrule
+Servidor & Cumple el protocolo pero es curioso &
+Sigue los pasos, pero intenta adivinar el $i$ mirando los mensajes
+$(u,\{E_j\})$. No lo logra si el problema DH es dif\'icil. \\
+Cliente & Quiere m\'as de lo permitido &
+Cumple para pedir, pero intenta sacar $K_j$ de\'indices que no pidi\'o
+($j\ne i$) con una sola respuesta. No puede sin romper el problema DH. \\
+Red & Esp\'ia y modifica &
+Mira el tr\'afico o cambia bytes. Cualquier cambio debe ser detectado
+por el cifrado AEAD y el control de versi\'on. \\
+\bottomrule
+\end{tabularx}
+\caption{Modelo adoptado. TODO(equipo): citar p\'arrafo ``Fuera de alcance'' del enunciado.}
+\end{table}
+
+\textbf{Lo que NO cubrimos} (el enunciado lo excluye):
+(i)~un servidor totalmente tramposo que env\'ia claves falsas (solo lo
+detectamos por integridad, no lo evitamos; ejemplo del libro
+Secci\'on~11.6.4: si entrega art\'iculos vac\'ios y te quejas, ya sabe lo que
+pediste);
+(ii)~pruebas de seguridad para cualquier combinaci\'on de programas (UC) ni
+ataques entre sesiones simult\'aneas m\'as all\'a de \code{sid} m\'as AAD
+(Ej.~11.20);
+(iii)~PIR, OT-extension, OPRF adaptativo ni millones de registros;
+(iv)~ocultar IP, hora, frecuencia o volumen de consultas.

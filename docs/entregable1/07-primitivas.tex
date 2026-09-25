@@ -1,0 +1,35 @@
+\section{Selecci\'on de bibliotecas y primitivas}
+\label{sec:primitivas}
+Qu\'e herramientas usamos y por qu\'e, en una tabla.
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+Para qu\'e & Qu\'e usamos & Por qu\'e \\
+\midrule
+Grupo matem\'atico &
+\textbf{ristretto255} (RFC~9496), con P-256 de repuesto &
+Es un grupo de orden primo sin elementos extra que causan errores;
+trae validaci\'on incluida y vectores de prueba (App.~A.1/A.2).
+Evita errores conocidos (Chou Secci\'on~3, caso Monero). \\
+Sacar claves &
+\textbf{HKDF-SHA256} con $salt{=}\mathsf{ctx}$ &
+Convierte el secreto Diffie-Hellman en clave; mezcla el id del
+cat\'alogo para no cruzar claves entre versiones; el \code{info} lleva
+dominio \code{oblivion-ti/ot-v1} m\'as sesi\'on e \'indice. \\
+Cifrar &
+\textbf{AES-256-GCM} &
+Cifra y a la vez detecta cambios; el dato asociado ata
+cat\'alogo, sesi\'on e \'indice; nonce de 96 bits \'unico; si algo
+cambi\'o, falla con \code{InvalidTag}. \\
+Programas &
+\code{cryptography} y \code{PyNaCl} recientes &
+Bibliotecas mantenidas con instalaci\'on f\'acil; grupo v\'ia Ristretto o
+curva est\'andar de repuesto; web con \code{FastAPI} y consola con
+\code{Typer}. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+% TODO(equipo): fijar requirements.txt exacto en E2; aqu\'i basta la tabla.

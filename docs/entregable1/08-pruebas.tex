@@ -1,0 +1,55 @@
+\section{Plan de pruebas y experimentaci\'on}
+\label{sec:pruebas}
+C\'omo vamos a demostrar que funciona y que es seguro (las pruebas se
+programan en el Entregable~2; aqu\'i queda el plan).
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}l X X@{}}
+\toprule
+Tipo & Qu\'e hacemos & Qu\'e debe pasar \\
+\midrule
+Casos buenos &
+Pedir el primero, el \'ultimo y varios al azar; repetir el mismo $i$
+con sesi\'on nueva &
+Siempre llega el registro correcto; los mensajes $(u,v,E)$ cambian
+cada vez aunque el resultado sea el mismo. \\
+Casos malos &
+Intentar abrir $K_{j\ne i}$; mandar punto $u$ deforme; \'indice fuera
+de rango; repetir $sid$; versi\'on vieja &
+El cifrado lo rechaza o el servidor devuelve error 400--409. \\
+Cambios &
+Cambiar un bit en $C_j$, $E_j$ o \code{catalog.json} &
+Se detecta por el cifrado o por la huella \code{sha256}. \\
+Sesiones &
+Reenviar $\hat u=u\cdot v$ (Ej.~11.20) entre sesiones &
+Sin $sid$ abrir\'ia el anterior ($i{-}1$); con la correcci\'on se rechaza. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\textbf{Mediciones:} probar $N\in\{500,1000,2500,5000\}$ en modo OT y en
+modo normal, en la misma m\'aquina, 5 veces cada uno (promedio y
+desviaci\'on), con un script \code{bench.py} que guarde CSV con: tiempo
+total, operaciones matem\'aticas (cliente 2, servidor $2N$) y bytes de
+petici\'on, respuesta y descarga completa.
+Idea a confirmar: el trabajo del servidor y la descarga crecen con $N$,
+el del cliente no.
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}l X X X X@{}}
+\toprule
+$N$ & Tiempo OT & Tiempo normal & Datos OT & Datos normal \\
+\midrule
+500 & & & & \\
+1000 & & & & \\
+2500 & & & & \\
+5000 & & & & \\
+\bottomrule
+\end{tabularx}
+\caption{Plantilla de resultados a llenar en el Entregable~2.}
+\end{table}
+% TODO(equipo): definir c\'omo medir tiempos y en qu\'e m\'aquina.

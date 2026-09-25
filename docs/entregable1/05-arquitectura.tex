@@ -1,0 +1,37 @@
+\section{Arquitectura del sistema}
+\label{sec:arquitectura}
+
+\textbf{Importador} (programa offline en Python): crea IoCs de prueba con
+relleno hasta 256\,B, genera las claves $K_j$ y los cifrados $C_j$, y guarda
+\code{catalog.json} m\'as \code{keys.db} (esto \'ultimo solo lo tiene el
+servidor).
+\textbf{Servidor} (el que entrega, con \code{FastAPI} y \code{uvicorn}):
+entrega la descarga completa y responde las peticiones OT, adem\'as del
+endpoint de comparaci\'on.
+\textbf{Cliente} (programa de consola con \code{Typer}):
+descarga, pide por OT, descifra y modo de comparaci\'on.
+Flujo general: descarga completa una vez y luego una sesi\'on OT nueva por
+cada registro que se quiera abrir.
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+Ruta & M\'etodo & Para qu\'e sirve \\
+\midrule
+\code{/catalog} & \code{GET} & Descarga completa de \code{catalog.json}. \\
+\code{/ot/query} & \code{POST} & Se env\'ia $(u,sid)$ y devuelve $E_{1..N}$. \\
+\code{/record} con id & \code{GET} & Solo comparaci\'on normal (baseline). \\
+\bottomrule
+\end{tabularx}
+\caption{Rutas HTTP m\'inimas. TODO(equipo): diagrama de despliegue local.}
+\end{table}
+
+\textbf{Comandos del cliente:}
+\code{fetch-catalog} (descargar), \code{ot-request} (pedir por OT),
+\code{decrypt} (abrir) y \code{baseline-get} (pedido normal).
+
+\textbf{L\'inea base:} la misma aplicaci\'on pero pidiendo el registro
+directo por HTTP, sin OT. Sirve para comparar tiempo total, datos
+transferidos y operaciones, y as\'i medir cu\'anto cuesta ocultar $i$.

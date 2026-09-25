@@ -1,0 +1,23 @@
+\section{Glosario de s\'imbolos}
+\label{sec:glosario}
+Resumen de letras para no perderse.
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}l X@{}}
+\toprule
+S\'imbolo & Qu\'e es \\
+\midrule
+$G,g,q$ & Grupo de n\'umeros para Diffie-Hellman, con generador $g$ y orden primo $q$. \\
+$N,i,j$ & Tama\~no del cat\'alogo; \'indice pedido $i$; \'indice cualquiera $j$. \\
+$K_j,C_j$ & Clave del registro $j$ y registro ya cifrado. \\
+$\beta,v$ & N\'umero al azar del emisor y $v=g^\beta$. \\
+$\alpha,u$ & N\'umero al azar del receptor y $u=g^\alpha v^{-i}$. \\
+$sid$ & N\'umero de sesi\'on nuevo en cada consulta (128 bits). \\
+$\mathsf{ctx}$ & Contexto: id del cat\'alogo, versi\'on y grupo usado. \\
+$u_j,Z_j,k_j,E_j$ & Clave p\'ublica del registro $j$, secreto DH, clave derivada y clave envuelta. \\
+$H,\mathrm{KDF}$ & Funci\'on hash (ideal) y HKDF-SHA256 para sacar claves. \\
+\bottomrule
+\end{tabularx}
+\end{table}

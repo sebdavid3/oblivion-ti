@@ -1,0 +1,59 @@
+% Entregable 1 — Consulta privada de inteligencia de amenazas mediante OT
+% Pegar en Overleaf como proyecto nuevo. Compila con pdfLaTeX: pdfLaTeX -> BibTeX -> pdfLaTeX x2.
+\documentclass[11pt,a4paper]{article}
+\usepackage[a4paper,left=2cm,right=2cm,top=2.2cm,bottom=2.2cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[spanish]{babel}
+\AtBeginDocument{\shorthandoff{<>}}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{hyperref}
+\usepackage[numbers,sort&compress]{natbib}
+
+\setlength{\emergencystretch}{3em}
+\renewcommand{\arraystretch}{1.15}
+\newcommand{\code}[1]{\texttt{#1}}
+
+\title{Consulta privada de inteligencia de amenazas mediante Oblivious Transfer\\ \large Entregable 1: Dise\~no y estado del arte (Proyecto 8)}
+\author{Sebastian David Iba\~nez Rios \and Cesar Luis Roa Martinez \and Ivan Camilo Rueda Ariza \and Andres Arturo Carrero Martinez \\ \small Ingenieria de Sistemas --- Universidad del Norte}
+\date{}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+TODO(equipo, 10 l\'ineas): un analista consulta 1 de $N$ indicadores de
+amenazas sin revelar cu\'al. El proveedor publica un cat\'alogo versionado
+de $N\in\{500,1000,2500,5000\}$ registros de 256\,B, cada uno cifrado con
+clave independiente $K_j$ y AEAD. El cliente descarga el cat\'alogo cifrado
+\emph{completo} (fase \emph{bulk}) para no filtrar su inter\'es y luego ejecuta
+un OT 1-de-$N$ Diffie-Hellman (Boneh--Shoup \S11.6.1 + Remark~11.2) que entrega
+solo la clave $K_i$. Privacidad del receptor perfecta, del emisor bajo CDH en
+modelo de or\'aculo aleatorio, integridad v\'ia AEAD y HKDF con binding de
+cat\'alogo, versi\'on, sesi\'on e \'indice. Se incluye l\'inea base HTTP y plan
+de medici\'on del costo lineal $O(N)$ frente a la consulta convencional.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\input{01-escenario}
+\input{02-adversario}
+\input{03-propiedades}
+\input{04-protocolo}
+\input{05-arquitectura}
+\input{06-formatos}
+\input{07-primitivas}
+\input{08-pruebas}
+\input{09-glosario}
+
+\bibliographystyle{plainnat}
+\bibliography{refs}
+\end{document}

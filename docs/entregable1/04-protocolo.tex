@@ -1,0 +1,84 @@
+\section{Estado del arte y protocolo derivado}
+\label{sec:protocolo}
+
+\subsection{Marco te\'orico}
+OT 1-de-$n$ significa: el emisor tiene mensajes $m_1,\dots,m_n$ y el receptor
+elige un \'indice $i$; al final el receptor conoce $m_i$ y nada m\'as, y el
+emisor no sabe cu\'al fue $i$ \cite{boneh-shoup-v06}.
+\textbf{Boneh--Shoup Secci\'on~11.6.1} presenta el OT con Diffie-Hellman:
+cifrado tipo ElGamal que reusa una aleatoriedad $\beta$, una funci\'on hash
+$H:G^2\to\mathcal{K}$ (tratada como ideal) y un cifrado sim\'etrico.
+\textbf{Naor--Pinkas} \cite{naor-pinkas-soda01,naor-pinkas-joc05} muestran
+c\'omo armar un 1-de-$N$ con $\log N$ OTs de 1-de-2 (m\'as OT adaptativo);
+\textbf{Tzeng} \cite{tzeng-pkc02} y \textbf{Chou--Orlandi}
+\cite{chou-orlandi-simplestOT} proponen variantes directas y r\'apidas.
+Usamos la construcci\'on BS como protocolo principal porque es la referencia
+que pide el enunciado; las dem\'as quedan como opciones descartadas (ver
+Secci\'on~\ref{sec:protocolo-descartadas}).
+
+\subsection{Especificaci\'on (con nuestros nombres)}
+Par\'ametros: $G=\langle g\rangle$ grupo de orden primo $q$ y
+$\mathsf{ctx}=\mathit{catalog\_id}\Vert\mathit{version}\Vert\mathit{group\_id}$.
+
+\begin{algorithm}[ht]
+\caption{BS-OT adaptado: entrega de $K_i$ (mensajes $m_j:=K_j$)}
+\begin{algorithmic}[1]
+\State \textbf{Preparaci\'on (una vez):} crear una clave $K_j$ por registro.
+\State Cifrar $C_j\gets\mathrm{AEAD.Enc}(K_j,nonce_j,record_j,\mathsf{ctx}\Vert j)$.
+\State Publicar $C=(C_1,\dots,C_N)$. El cliente descarga $C$ \emph{entero}.
+\State \textbf{S $\to$ R:} sortear $\beta$ y enviar $v\gets g^\beta$.
+\State \textbf{R$(i)$ $\to$ S:} sortear $\alpha$ y enviar
+  $u\gets g^\alpha\cdot v^{-i}$ junto a un $sid$ nuevo.
+\State \textbf{S $\to$ R, para cada $j=1..N$:}
+  $u_j\gets u\cdot v^j$ (equivale a $g^\alpha v^{j-i}$).
+\State $Z_j\gets u_j^\beta$ (secreto compartido Diffie-Hellman).
+\State $k_j\gets\mathrm{HKDF}(salt{=}\mathsf{ctx},ikm{=}Z_j,%
+  info{=}\text{dominio}\Vert sid\Vert j)$ (clave para envolver $K_j$).
+\State $E_j\gets\mathrm{AEAD.Enc}(k_j,nonce'_j,K_j,\mathsf{ctx}\Vert sid\Vert j)$.
+\State Enviar $(sid,v,E_1,\dots,E_N)$.
+\State \textbf{R:} calcular $Z_i\gets v^\alpha$ (equivale a $g^{\alpha\beta}$).
+\State Derivar $k_i$ igual y abrir $K_i$ y luego $record_i$ con AEAD.
+\end{algorithmic}
+\end{algorithm}
+
+El intercambio son dos mensajes m\'as la descarga previa:
+primero el emisor publica $v$; luego el receptor env\'ia $(sid,u)$;
+al final el emisor responde $(sid,v,E_{1..N})$.
+
+\begin{center}
+\begin{tikzpicture}[node distance=1.1cm, auto,
+  party/.style={rectangle,draw,minimum width=2.2cm,minimum height=0.8cm,align=center},
+  msg/.style={font=\scriptsize}]
+\node[party] (r) {Receptor};
+\node[party,below=of r] (s) {Emisor};
+\draw[-{Stealth}] (s.east) -- ++(1.2,0) |- (r.east)
+  node[pos=0.25,right,msg] {$v$};
+\draw[-{Stealth}] (r.west) -- ++(-1.2,0) |- (s.west)
+  node[pos=0.25,left,msg] {$(sid,u)$};
+\draw[-{Stealth}] (s.east) -- ++(2.0,0) |- (r.east)
+  node[pos=0.25,right,msg] {$(sid,v,E_{1..N})$};
+\end{tikzpicture}
+\end{center}
+
+\subsection{Por qu\'e cumple (en simple)}
+\emph{El servidor no distingue:} $u$ parece al azar, as\'i que no revela $i$.
+\emph{El cliente solo abre uno:} pedir dos claves al hash $H$ equivaldr\'ia a
+resolver Diffie-Hellman ($v^\beta=g^{\beta^2}$, Ej.~10.17); adem\'as tendr\'ia
+que romper la derivaci\'on HKDF o el cifrado.
+\emph{Sesiones:} sin $sid$ ni dato asociado, el ataque del Ej.~11.20
+($\hat u=u\cdot v$, que mueve el pedido de $i$ a $i-1$) funcionar\'ia; con la
+correcci\'on de Remark~11.2 (meter $sid$ en el hash y usar AEAD) se rechaza.
+\emph{Costo:} el receptor hace 2 operaciones matem\'aticas ($O(1)$); el emisor
+hace $2N$ ($O(N)$); se env\'ian $|u|+N\cdot|E_j|$ m\'as la descarga previa de
+$O(N\cdot 256\,\mathrm{B})$.
+
+\subsection{Otras opciones (descartadas)}
+\label{sec:protocolo-descartadas}
+Naor--Pinkas con $\log N$ OTs (m\'as rondas y m\'as complejo de programar),
+Tzeng directo $y=g^rh^\alpha$ (parecido, pero no es la referencia pedida y su
+versi\'on segura exige pruebas de conocimiento cero), Chou--Orlandi
+(m\'as r\'apido pero hay que manejar un detalle del grupo de 8 elementos
+extras, lo que motiva usar Ristretto, Secci\'on~\ref{sec:primitivas}) y OPRF
+adaptativo completo (Secciones~11.6.3--11.6.4, fuera del alcance aunque de ah\'i
+sale la idea de cifrar una vez y abrir bajo demanda).
+% TODO(equipo): verificar pp.~451--452 del libro y reescribir con vuestras palabras.
