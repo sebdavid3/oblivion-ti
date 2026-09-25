@@ -1,7 +1,7 @@
 \section{Modelo de adversario}
 \label{sec:adversario}
 Aqu\'i definimos contra qui\'en nos defendemos: qu\'e puede intentar cada
-parte y qu\'e queda fuera del trabajo (ver exclusiones del enunciado).
+parte y qu\'e queda fuera del modelo.
 
 \begin{table}[ht]
 \centering
@@ -21,16 +21,17 @@ Mira el tr\'afico o cambia bytes. Cualquier cambio debe ser detectado
 por el cifrado AEAD y el control de versi\'on. \\
 \bottomrule
 \end{tabularx}
-\caption{Modelo adoptado. TODO(equipo): citar p\'arrafo ``Fuera de alcance'' del enunciado.}
+\caption{Modelo de adversario del sistema.}
 \end{table}
 
-\textbf{Lo que NO cubrimos} (el enunciado lo excluye):
-(i)~un servidor totalmente tramposo que env\'ia claves falsas (solo lo
-detectamos por integridad, no lo evitamos; ejemplo del libro
-Secci\'on~11.6.4: si entrega art\'iculos vac\'ios y te quejas, ya sabe lo que
-pediste);
-(ii)~pruebas de seguridad para cualquier combinaci\'on de programas (UC) ni
-ataques entre sesiones simult\'aneas m\'as all\'a de \code{sid} m\'as AAD
-(Ej.~11.20);
-(iii)~PIR, OT-extension, OPRF adaptativo ni millones de registros;
-(iv)~ocultar IP, hora, frecuencia o volumen de consultas.
+\textbf{Supuestos y l\'imites del modelo}:
+(i)~PIR, extensi\'on de OT, OT adaptativo con OPRF ni bases de millones de
+registros;
+(ii)~clientes o servidores totalmente tramposos (solo cubrimos servidor
+curioso que cumple el protocolo y cliente que pide de m\'as; si el servidor
+manda datos falsos solo lo detectamos por integridad, como en el ejemplo de
+los art\'iculos vac\'ios de la Secci\'on~11.6.4 del libro);
+(iii)~pruebas de seguridad para cualquier combinaci\'on de programas
+(componibilidad);
+(iv)~ocultar IP, frecuencia, momento o volumen de consultas, ni pagos o
+licenciamiento real.
