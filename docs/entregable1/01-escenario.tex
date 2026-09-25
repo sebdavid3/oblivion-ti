@@ -20,24 +20,21 @@ Diffie-Hellman, que solo le entrega la clave $K_i$ que necesita.
 
 Los registros son sint\'eticos y de prueba: no son amenazas reales, solo
 sirven para demostrar el protocolo. El Importador los crea con una semilla
-fija (p.~ej. \code{seed=42}) para que cualquiera pueda repetir el mismo
-cat\'alogo. Cada registro tiene seis campos con formato fijo: \code{record\_id}
-como \code{ioc-2026-XXXX} seg\'un su posici\'on; \code{ip} rotando en el rango
-de documentaci\'on \code{203.0.113.0/24}; \code{hash} como \code{sha256:} m\'as
-64 d\'igitos hexadecimales aleatorios; \code{asn} como \code{AS64512} m\'as un
-desplazamiento peque\~no dentro del rango privado de documentaci\'on;
-\code{ts} como fecha ISO en UTC a partir de
-\code{2026-09-25T11:00:00Z} sumando un minuto por registro; y \code{pad} como
-texto de relleno.
-
-Se serializa a JSON compacto con claves ordenadas y en UTF-8, y el largo de
-\code{pad} se ajusta para que el JSON total mida exactamente 256\,B: no son
-bytes pegados despu\'es, sino un campo de texto m\'as dentro del JSON (si el
-contenido se pasa de 256\,B, el Importador da error y no recorta). As\'i todos
-los registros quedan del mismo tama\~no y el tama\~no no filtra cu\'al se
-pidi\'o. Despu\'es el Importador genera una clave $K_j$ por registro, cifra
-ese JSON de 256\,B y guarda \code{catalog.json} + \code{keys.db}, como se
-detalla en las Secciones~\ref{sec:arquitectura} y~\ref{sec:formatos}.
+fija (\code{seed=42}) para que cualquiera pueda repetir el mismo cat\'alogo.
+Cada registro tiene seis campos con formato fijo: \code{record\_id} como
+\code{ioc-2026-XXXX} seg\'un su posici\'on; \code{ip} rotando en el rango de
+documentaci\'on \code{203.0.113.0/24}; \code{hash} como \code{sha256:} m\'as
+64 d\'igitos hexadecimales aleatorios; \code{asn} como \code{AS64500} m\'as un
+desplazamiento peque\~no (\code{idx mod 14}); \code{ts} como fecha ISO en UTC
+a partir de \code{2026-09-25T11:00:00Z} sumando un minuto por registro; y
+\code{pad} con ceros. El registro se serializa a JSON compacto con claves
+ordenadas en UTF-8, donde \code{pad} es un campo de texto cuyo largo se
+ajusta para que el JSON total mida exactamente 256\,B (si el contenido se
+pasa, el Importador da error y no recorta). As\'i todos los registros quedan
+del mismo tama\~no y el tama\~no no filtra cu\'al se pidi\'o. Despu\'es el
+Importador genera una clave $K_j$ por registro, lo cifra y guarda
+\code{catalog.json} + \code{keys.db}, como se detalla en las
+Secciones~\ref{sec:arquitectura} y~\ref{sec:formatos}.
 
 \begin{table}[ht]
 \centering
@@ -48,13 +45,13 @@ Campo & Formato y ejemplo \\
 \midrule
 \code{record\_id} & \code{ioc-2026-0042} (consecutivo seg\'un \code{idx}) \\
 \code{ip} & \code{203.0.113.45} (rango de ejemplo, no real) \\
-\code{hash} & \code{sha256:9f2c...} (64 hex aleatorios, aqu\'i recortado) \\
-\code{asn} & \code{AS64512} (m\'as \code{idx mod 14}, rango privado) \\
+\code{hash} & \code{sha256:9f2c...} (64 hex aleatorios, no real) \\
+\code{asn} & \code{AS64500} (m\'as \code{idx mod 14}) \\
 \code{ts} & \code{2026-09-25T11:00:00Z} m\'as un minuto por \code{idx} \\
-\code{pad} & texto de relleno (se alarga hasta que el JSON mida 256\,B) \\
+\code{pad} & ceros hasta completar 256\,B exactos \\
 \bottomrule
 \end{tabularx}
-\caption{Ejemplo de registro sint\'etico antes de cifrar. El JSON compacto ordenado, con \code{pad} incluido, mide siempre 256\,B.}
+\caption{Ejemplo de registro sint\'etico antes de cifrar. El JSON compacto ordenado m\'as \code{pad} suma siempre 256\,B.}
 \end{table}
 
 \subsection{Soluci\'on a alto nivel}
