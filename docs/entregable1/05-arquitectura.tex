@@ -1,37 +1,97 @@
 \section{Arquitectura del sistema}
 \label{sec:arquitectura}
 
-\textbf{Importador} (programa offline en Python): crea IoCs de prueba con
-relleno hasta 256\,B, genera las claves $K_j$ y los cifrados $C_j$, y guarda
-\code{catalog.json} m\'as \code{keys.db} (esto \'ultimo solo lo tiene el
-servidor).
-\textbf{Servidor} (el que entrega, con \code{FastAPI} y \code{uvicorn}):
-entrega la descarga completa y responde las peticiones OT, adem\'as del
-endpoint de comparaci\'on.
-\textbf{Cliente} (programa de consola con \code{Typer}):
-descarga, pide por OT, descifra y modo de comparaci\'on.
-Flujo general: descarga completa una vez y luego una sesi\'on OT nueva por
-cada registro que se quiera abrir.
+El sistema se compone de tres herramientas desacopladas con responsabilidades
+estrictamente delimitadas:
+
+\begin{itemize}
+\item \textbf{Importador (\code{oblivion-import}):} Programa de l\'inea de comandos
+offline en Python. Genera los IoCs de prueba con semilla fija (\code{seed=42}),
+aplica el relleno hasta 256\,B, sortea las claves sim\'etricas independientes
+$K_j$, cifra cada registro con AES-256-GCM y persiste el cat\'alogo p\'ublico
+\code{catalog.json} junto con el almac\'en confidencial de claves \code{keys.db}
+(este \'ultimo custodiado exclusivamente por el servidor).
+\item \textbf{Servidor (\code{oblivion-server}):} Servicio web as\'incrono
+construido sobre \code{FastAPI} y servido con \code{uvicorn}. Carga en memoria
+las claves $K_j$, atiende la descarga masiva del cat\'alogo, gestiona el ciclo
+de vida de las sesiones ef\'imeras en memoria y procesa las operaciones algebraicas
+del protocolo OT, adem\'as de exponer el endpoint para la l\'inea base.
+\item \textbf{Cliente (\code{oblivion-client}):} Interfaz de l\'inea de comandos
+estructurada con \code{Typer}. Permite descargar el cat\'alogo, solicitar el
+inicio de sesi\'on, enviar la consulta OT privada, descifrar localmente el registro
+recuperado y ejecutar consultas en modo convencional para comparaci\'on.
+\end{itemize}
+
+\subsection{Rutas de la API y gesti\'on de sesiones}
+Para resolver la necesidad de que el cliente conozca el elemento base $v = g^\beta$
+antes de construir su consulta enmascarada $u = g^\alpha \cdot v^{-i}$, la API
+incorpora una ruta de inicio de sesi\'on (\code{POST /ot/session}):
 
 \begin{table}[ht]
 \centering
 \small
-\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\begin{tabularx}{\textwidth}{@{}l l p{4.2cm} X@{}}
 \toprule
-Ruta & M\'etodo & Para qu\'e sirve \\
+Ruta & M\'etodo & Datos transmitidos & Prop\'osito \\
 \midrule
-\code{/catalog} & \code{GET} & Descarga completa de \code{catalog.json}. \\
-\code{/ot/query} & \code{POST} & Se env\'ia $(u,sid)$ y devuelve $E_{1..N}$. \\
-\code{/record} con id & \code{GET} & Solo comparaci\'on normal (baseline). \\
+\code{/catalog} & \code{GET} & Ninguno & Descarga en bloque (\emph{bulk}) del archivo \code{catalog.json} completo. \\
+\code{/ot/session} & \code{POST} & Versi\'on del cat\'alogo & Inicializa sesi\'on: genera $\beta$, calcula $v=g^\beta$, crea $sid$ y retorna $(sid, v)$. \\
+\code{/ot/query} & \code{POST} & $(sid, u)$ & Procesa la consulta OT: calcula $\{E_j\}$, destruye $\beta$ y retorna $\{E_j\}$. \\
+\code{/record/\{id\}} & \code{GET} & \code{record\_id} en ruta & Consulta ordinaria sin privacidad (l\'inea base de comparaci\'on). \\
 \bottomrule
 \end{tabularx}
-\caption{Rutas HTTP m\'inimas. Despliegue local: un servidor y un cliente por ejecuci\'on. TODO(equipo): diagrama de despliegue local.}
+\caption{Especificaci\'on de rutas HTTP del servidor.}
+\label{tab:rutas-api}
 \end{table}
 
-\textbf{Comandos del cliente:}
-\code{fetch-catalog} (descargar), \code{ot-request} (pedir por OT),
-\code{decrypt} (abrir) y \code{baseline-get} (pedido normal).
+\textbf{Manejo de sesiones interrumpidas y repetidas:}
+En el servidor, cada llamada a \code{POST /ot/session} almacena temporalmente
+el escalar $\beta$ indexado por $sid$ en una estructura en memoria protegida
+por un tiempo l\'imite de expiraci\'on (\emph{TTL} de 60 segundos). Si el cliente
+se desconecta o aborta antes de invocar \code{POST /ot/query}, la sesi\'on
+caduca y $\beta$ es eliminado autom\'aticamente por una tarea peri\'odica,
+evitando fugas de memoria. Por otra parte, al ejecutarse \code{POST /ot/query},
+el servidor consume y elimina inmediatamente $\beta$ de memoria; cualquier
+reintento con el mismo $sid$ es rechazado deterministamente con c\'odigo
+HTTP \code{409 Conflict}, impidiendo ataques de repetici\'on.
 
-\textbf{L\'inea base:} la misma aplicaci\'on pero pidiendo el registro
-directo por HTTP, sin OT. Sirve para comparar tiempo total, datos
-transferidos y operaciones, y as\'i medir cu\'anto cuesta ocultar $i$.
+\subsection{Comandos del cliente y l\'inea base}
+El cliente \code{oblivion-client} provee los siguientes subcomandos:
+\begin{itemize}
+\item \code{fetch-catalog}: Descarga \code{catalog.json} y valida su huella SHA-256.
+\item \code{ot-query --id <ID>}: Inicia sesi\'on, obtiene $(sid, v)$, computa $u$,
+solicita $\{E_j\}$, descifra $K_i$ y presenta en pantalla el IoC en claro.
+\item \code{baseline-get --id <ID>}: Consulta directa convencional por HTTP
+para medir la latencia y volumen sin sobrecarga criptogr\'afica.
+\item \code{benchmark}: Ejecuta series automatizadas de consultas OT y convencionales
+para cat\'alogos de distintos tama\~nos ($N$), exportando los tiempos a CSV.
+\end{itemize}
+
+\subsection{Despliegue local}
+Siguiendo los requisitos del enunciado, el despliegue se realiza de forma local:
+una instancia del servidor y una del cliente ejecut\'andose en la misma m\'aquina.
+
+\begin{figure}[ht]
+\centering
+\small
+\begin{tikzpicture}[node distance=1.1cm, auto,
+  box/.style={rectangle,draw=blue!80,fill=blue!5,rounded corners,minimum width=2.4cm,minimum height=0.7cm,align=center,font=\scriptsize\bfseries},
+  store/.style={rectangle,draw=gray!70,fill=gray!10,rounded corners,minimum width=2.2cm,minimum height=0.5cm,align=center,font=\tiny}]
+
+\node[box] (srv) {Servidor\\(\code{FastAPI / :8000})};
+\node[store,below=0.4cm of srv] (sdata) {\code{keys.db} / \code{catalog.json}};
+\node[box,right=3.0cm of srv] (cli) {Cliente CLI\\(\code{Typer})};
+\node[store,below=0.4cm of cli] (cdata) {Cach\'e local};
+\node[box,above=0.5cm of srv] (imp) {Importador\\(\code{oblivion-import})};
+
+\draw[-{Stealth},thick] (imp) -- node[left,font=\tiny]{crea} (srv);
+\draw[-{Stealth},thick] (srv) -- (sdata);
+\draw[-{Stealth},thick] (cli) -- (cdata);
+
+\draw[-{Stealth},thick] (cli) to[bend right=15] node[below,font=\tiny]{\code{GET /catalog} / \code{POST /ot/session} / \code{POST /ot/query}} (srv);
+\draw[-{Stealth},thick] (srv) to[bend right=15] node[above,font=\tiny]{Respuestas JSON (HTTP local)} (cli);
+
+\end{tikzpicture}
+\caption{Diagrama de despliegue local del sistema en una sola estaci\'on de trabajo.}
+\label{fig:despliegue-local}
+\end{figure}
