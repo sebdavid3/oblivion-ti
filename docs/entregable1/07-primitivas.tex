@@ -1,69 +1,54 @@
 \section{Selecci\'on de bibliotecas y primitivas}
 \label{sec:primitivas}
 
-La elecci\'on de herramientas criptogr\'aficas obedece a criterios de rigor
-matem\'atico, seguridad frente a ataques de canal lateral y soporte de operaciones
-de grupo espec\'ificas.
-
 \begin{table}[ht]
 \centering
 \small
 \begin{tabularx}{\textwidth}{@{}l l X@{}}
 \toprule
-Para qu\'e & Qu\'e usamos & Por qu\'e t\'ecnico y justificaci\'on \\
+Para qu\'e & Qu\'e usamos & Por qu\'e \\
 \midrule
 Grupo matem\'atico &
 \textbf{ristretto255} (RFC~9496 \cite{rfc9496}) &
-Grupo c\'iclico de orden estrictamente primo $q=2^{252}+\dots$ ($h=1$). Elimina
-el cofactor 8 de Curve25519 y neutraliza ataques de confinamiento de subgrupo
-peque\~no y maleabilidad de puntos \cite{chou-orlandi-simplestOT}. Trae codificaci\'on
-can\'onica biyectiva de 32\,B y validaci\'on nativa (Ap\'endices A.1/A.2). \\
+Grupo c\'iclico de orden primo $q \approx 2^{252}$. Elimina el cofactor 8 de
+Curve25519, con lo que desaparecen los ataques de subgrupo peque\~no
+\cite{chou-orlandi-simplestOT}. Cada elemento tiene una \'unica codificaci\'on
+can\'onica de 32\,B y la decodificaci\'on rechaza las dem\'as. \\
 Derivar claves &
 \textbf{HKDF-SHA256} (RFC~5869 \cite{rfc5869-hkdf}) &
-Transforma el secreto Diffie-Hellman $Z_j$ en clave de 256 bits. El $salt = \mathsf{ctx}$
-evita reutilizaci\'on entre cat\'alogos o versiones; el \code{info} ata el dominio
-\code{"oblivion-ti/ot-v1"}, el $sid$ y el \'indice $j$ en 32 bits. \\
+Convierte el secreto Diffie-Hellman $Z_j$ en una clave de 256 bits. La sal
+$\mathsf{ctx}$ separa cat\'alogos y versiones; el \code{info} ata el dominio
+\code{"oblivion-ti/ot-v1"}, el $sid$ y el \'indice $j$. \\
 Cifrado sim\'etrico &
 \textbf{AES-256-GCM} (NIST SP 800-38D \cite{nist-gcm}) &
-Cifrado autenticado (AEAD) con tag de 128 bits; nonces \'unicos de 96 bits.
-El dato asociado ata contexto e \'indice ($AAD_{\mathrm{cat}}$ y $AAD_{\mathrm{ot}}$).
-Cualquier alteraci\'on arroja \code{InvalidTag}. \\
-Bibliotecas &
-\code{PyNaCl} y \code{cryptography} &
-Implementaciones probadas y mantenidas. \code{PyNaCl} provee las operaciones
-de punto de Ristretto255; \code{cryptography} aporta AES-GCM y HKDF acelerados
-por hardware. \\
+Cifrado autenticado (AEAD) con tag de 128 bits y nonce aleatorio de 96 bits.
+Cada clave ($K_j$ y $k_j$) cifra un solo mensaje, as\'i que no hay riesgo de
+repetir nonce. El dato asociado ata contexto, sesi\'on e \'indice. \\
 \bottomrule
 \end{tabularx}
-\caption{Selecci\'on formal de primitivas criptogr\'aficas y justificaci\'on t\'ecnica.}
+\caption{Primitivas criptogr\'aficas seleccionadas y su justificaci\'on.}
 \label{tab:seleccion-primitivas}
 \end{table}
 
-\subsection{An\'alisis del grupo el\'iptico y descarte de P-256 en Python}
-Se analiz\'o inicialmente la posibilidad de utilizar la curva est\'andar
-\textbf{NIST P-256} como alternativa de repuesto al ser de orden primo ($h=1$).
-Sin embargo, se determin\'o que \textbf{P-256 no es viable en la biblioteca
-\code{cryptography}} para este protocolo. La API de curvas el\'ipticas de
-\code{cryptography} (\code{cryptography.hazmat.primitives.asymmetric.ec}) est\'a
-dise\~nada exclusivamente para intercambio ECDH de alto nivel y firmas ECDSA;
-no expone operaciones aritm\'eticas arbitrarias sobre puntos de la curva, tales
-como la suma de dos puntos p\'ublicos ($u_j = u \cdot v^j$) ni la multiplicaci\'on
-escalar de un punto arbitrario por un escalar independiente.
+\subsection{Bibliotecas}
+AES-256-GCM y HKDF-SHA256 se toman de \code{cryptography} (sobre OpenSSL,
+con aceleraci\'on por hardware). Para el grupo, el protocolo necesita tres
+operaciones sobre elementos arbitrarios: producto ($u_j = u_{j-1}\cdot v$),
+exponenciaci\'on ($u_j^\beta$, $v^{-i}$) y validaci\'on de codificaciones.
+\code{cryptography} no las ofrece: su API de curvas el\'ipticas se limita a
+ECDH y ECDSA y no permite sumar dos puntos. \code{PyNaCl} tampoco: se
+comprob\'o en las versiones 1.5.0 y 1.6.2 que expone esa aritm\'etica para
+Ed25519, cuyo grupo tiene cofactor 8, pero no las funciones de
+\texttt{ristretto255}. Se adopta por eso \code{rbcl}, que empaqueta
+\code{libsodium} y expone sus funciones \code{crypto\_core\_ristretto255\_*}
+(producto, validaci\'on de puntos y aritm\'etica de escalares) y
+\code{crypto\_scalarmult\_ristretto255} (exponenciaci\'on). Como el producto
+no valida sus entradas, todo elemento recibido se comprueba antes con
+\code{is\_valid\_point}. Como respaldo queda NIST P-256, tambi\'en de orden
+primo, con \code{PyCryptodome}, cuya clase \code{EccPoint} permite sumar y
+multiplicar puntos; solo cambiar\'ian \code{group\_id} y la serializaci\'on
+de los elementos.
 
-Por el contrario, la biblioteca \textbf{\code{PyNaCl}} (enlace a \code{libsodium})
-expone directamente la interfaz de bajo nivel de \texttt{ristretto255} a trav\'es de
-sus bindings (\code{nacl.bindings.crypto\_core\_ristretto255\_add} y
-\code{nacl.bindings.crypto\_core\_ristretto255\_scalarmult}), permitiendo
-ejecutar la suma de puntos y la multiplicaci\'on escalar en tiempo constante de
-forma nativa, segura y eficiente.
-
-\subsection{Versiones fijadas del ecosistema de dependencias}
-Para garantizar la reproducibilidad completa del producto de software, se fijan
-las versiones m\'inimas en el entorno:
-\begin{itemize}
-\item \code{pynacl >= 1.5.0}: Soporte nativo y probado de primitivas Ristretto255.
-\item \code{cryptography >= 42.0.0}: Implementaci\'on de AES-256-GCM y HKDF con backend OpenSSL~3.
-\item \code{fastapi >= 0.110.0} y \code{uvicorn >= 0.28.0}: Servidor HTTP as\'incrono de alto rendimiento.
-\item \code{typer >= 0.9.0} y \code{rich >= 13.7.0}: Interfaz de l\'inea de comandos tipada con salida estructurada.
-\item \code{pydantic >= 2.6.0}: Validaci\'on estricta de esquemas de datos y mensajes.
-\end{itemize}
+Las dependencias se fijan a versiones exactas en \code{requirements.txt},
+sobre Python~3.11: rbcl 1.1.2, cryptography 50.0.2, fastapi 0.142.2, uvicorn
+0.54.0, typer 0.27.2, pydantic 2.13.5 y httpx 0.28.1 (cliente HTTP).

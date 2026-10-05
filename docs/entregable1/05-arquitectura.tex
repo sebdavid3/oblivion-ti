@@ -1,97 +1,61 @@
 \section{Arquitectura del sistema}
 \label{sec:arquitectura}
 
-El sistema se compone de tres herramientas desacopladas con responsabilidades
-estrictamente delimitadas:
+El sistema se compone de tres herramientas en Python con responsabilidades
+separadas:
 
 \begin{itemize}
-\item \textbf{Importador (\code{oblivion-import}):} Programa de l\'inea de comandos
-offline en Python. Genera los IoCs de prueba con semilla fija (\code{seed=42}),
-aplica el relleno hasta 256\,B, sortea las claves sim\'etricas independientes
-$K_j$, cifra cada registro con AES-256-GCM y persiste el cat\'alogo p\'ublico
-\code{catalog.json} junto con el almac\'en confidencial de claves \code{keys.db}
-(este \'ultimo custodiado exclusivamente por el servidor).
-\item \textbf{Servidor (\code{oblivion-server}):} Servicio web as\'incrono
-construido sobre \code{FastAPI} y servido con \code{uvicorn}. Carga en memoria
-las claves $K_j$, atiende la descarga masiva del cat\'alogo, gestiona el ciclo
-de vida de las sesiones ef\'imeras en memoria y procesa las operaciones algebraicas
-del protocolo OT, adem\'as de exponer el endpoint para la l\'inea base.
-\item \textbf{Cliente (\code{oblivion-client}):} Interfaz de l\'inea de comandos
-estructurada con \code{Typer}. Permite descargar el cat\'alogo, solicitar el
-inicio de sesi\'on, enviar la consulta OT privada, descifrar localmente el registro
-recuperado y ejecutar consultas en modo convencional para comparaci\'on.
+\item \textbf{Importador (\code{oblivion-import}):} programa de l\'inea de
+comandos offline. Genera los IoCs de prueba con semilla fija (\code{seed=42}),
+los rellena hasta 256\,B, sortea una clave independiente $K_j$ por registro,
+cifra con AES-256-GCM y guarda el cat\'alogo p\'ublico \code{catalog.json}
+junto con el almac\'en de claves \code{keys.db}, que solo tiene el servidor.
+\item \textbf{Servidor (\code{oblivion-server}):} servicio web sobre
+\code{FastAPI} y \code{uvicorn}. Carga en memoria las claves $K_j$, sirve la
+descarga en bloque, mantiene las sesiones ef\'imeras, ejecuta el rol de
+emisor del protocolo OT y expone la ruta de la l\'inea base.
+\item \textbf{Cliente (\code{oblivion-client}):} interfaz de l\'inea de
+comandos con \code{Typer}. Descarga y verifica el cat\'alogo, traduce el
+\code{record\_id} a \'indice con el mapa p\'ublico, ejecuta el rol de
+receptor y descifra localmente el registro.
 \end{itemize}
-
-\subsection{Rutas de la API y gesti\'on de sesiones}
-Para resolver la necesidad de que el cliente conozca el elemento base $v = g^\beta$
-antes de construir su consulta enmascarada $u = g^\alpha \cdot v^{-i}$, la API
-incorpora una ruta de inicio de sesi\'on (\code{POST /ot/session}):
 
 \begin{table}[ht]
 \centering
 \small
-\begin{tabularx}{\textwidth}{@{}l l p{4.2cm} X@{}}
+\begin{tabularx}{\textwidth}{@{}l l p{3.4cm} X@{}}
 \toprule
-Ruta & M\'etodo & Datos transmitidos & Prop\'osito \\
+Ruta & M\'etodo & Datos enviados & Prop\'osito \\
 \midrule
 \code{/catalog} & \code{GET} & Ninguno & Descarga en bloque (\emph{bulk}) del archivo \code{catalog.json} completo. \\
-\code{/ot/session} & \code{POST} & Versi\'on del cat\'alogo & Inicializa sesi\'on: genera $\beta$, calcula $v=g^\beta$, crea $sid$ y retorna $(sid, v)$. \\
-\code{/ot/query} & \code{POST} & $(sid, u)$ & Procesa la consulta OT: calcula $\{E_j\}$, destruye $\beta$ y retorna $\{E_j\}$. \\
-\code{/record/\{id\}} & \code{GET} & \code{record\_id} en ruta & Consulta ordinaria sin privacidad (l\'inea base de comparaci\'on). \\
+\code{/ot/session} & \code{POST} & Versi\'on del cat\'alogo & Genera $\beta$, calcula $v=g^\beta$, crea $sid$ y responde $(sid, v)$. \\
+\code{/ot/query} & \code{POST} & $(sid, u)$ & Calcula $\{E_j\}$, destruye $\beta$ y responde con las $N$ encapsulaciones. \\
+\code{/record/\{id\}} & \code{GET} & \code{record\_id} en la ruta & L\'inea base sin privacidad: el servidor descifra $C_j$ y devuelve el registro en claro. \\
 \bottomrule
 \end{tabularx}
-\caption{Especificaci\'on de rutas HTTP del servidor.}
+\caption{Rutas HTTP del servidor.}
 \label{tab:rutas-api}
 \end{table}
 
-\textbf{Manejo de sesiones interrumpidas y repetidas:}
-En el servidor, cada llamada a \code{POST /ot/session} almacena temporalmente
-el escalar $\beta$ indexado por $sid$ en una estructura en memoria protegida
-por un tiempo l\'imite de expiraci\'on (\emph{TTL} de 60 segundos). Si el cliente
-se desconecta o aborta antes de invocar \code{POST /ot/query}, la sesi\'on
-caduca y $\beta$ es eliminado autom\'aticamente por una tarea peri\'odica,
-evitando fugas de memoria. Por otra parte, al ejecutarse \code{POST /ot/query},
-el servidor consume y elimina inmediatamente $\beta$ de memoria; cualquier
-reintento con el mismo $sid$ es rechazado deterministamente con c\'odigo
-HTTP \code{409 Conflict}, impidiendo ataques de repetici\'on.
+La ruta \code{/ot/session} existe porque el cliente necesita conocer
+$v = g^\beta$ antes de construir $u = g^\alpha \cdot v^{-i}$. El ciclo de
+vida de las sesiones (TTL y un solo uso) se describe en la
+Secci\'on~\ref{sec:protocolo}, y los c\'odigos de error en la
+Secci\'on~\ref{sec:formatos}.
 
-\subsection{Comandos del cliente y l\'inea base}
-El cliente \code{oblivion-client} provee los siguientes subcomandos:
+\subsection{Comandos del cliente, flujo de datos y l\'inea base}
 \begin{itemize}
-\item \code{fetch-catalog}: Descarga \code{catalog.json} y valida su huella SHA-256.
-\item \code{ot-query --id <ID>}: Inicia sesi\'on, obtiene $(sid, v)$, computa $u$,
-solicita $\{E_j\}$, descifra $K_i$ y presenta en pantalla el IoC en claro.
-\item \code{baseline-get --id <ID>}: Consulta directa convencional por HTTP
-para medir la latencia y volumen sin sobrecarga criptogr\'afica.
-\item \code{benchmark}: Ejecuta series automatizadas de consultas OT y convencionales
-para cat\'alogos de distintos tama\~nos ($N$), exportando los tiempos a CSV.
+\item \code{fetch-catalog}: descarga \code{catalog.json} y valida su huella SHA-256.
+\item \code{ot-query -{}-id <ID>}: abre sesi\'on, obtiene $(sid, v)$, calcula
+$u$, recibe $\{E_j\}$, abre $K_i$ y muestra el IoC en claro.
+\item \code{baseline-get -{}-id <ID>}: consulta convencional por HTTP, en la
+que el servidor ve el identificador pedido; es la referencia de
+funcionalidad, latencia y ancho de banda.
+\item \code{benchmark}: ejecuta series de consultas OT y convencionales para
+cada tama\~no $N$ y exporta los resultados a CSV.
 \end{itemize}
-
-\subsection{Despliegue local}
-Siguiendo los requisitos del enunciado, el despliegue se realiza de forma local:
-una instancia del servidor y una del cliente ejecut\'andose en la misma m\'aquina.
-
-\begin{figure}[ht]
-\centering
-\small
-\begin{tikzpicture}[node distance=1.1cm, auto,
-  box/.style={rectangle,draw=blue!80,fill=blue!5,rounded corners,minimum width=2.4cm,minimum height=0.7cm,align=center,font=\scriptsize\bfseries},
-  store/.style={rectangle,draw=gray!70,fill=gray!10,rounded corners,minimum width=2.2cm,minimum height=0.5cm,align=center,font=\tiny}]
-
-\node[box] (srv) {Servidor\\(\code{FastAPI / :8000})};
-\node[store,below=0.4cm of srv] (sdata) {\code{keys.db} / \code{catalog.json}};
-\node[box,right=3.0cm of srv] (cli) {Cliente CLI\\(\code{Typer})};
-\node[store,below=0.4cm of cli] (cdata) {Cach\'e local};
-\node[box,above=0.5cm of srv] (imp) {Importador\\(\code{oblivion-import})};
-
-\draw[-{Stealth},thick] (imp) -- node[left,font=\tiny]{crea} (srv);
-\draw[-{Stealth},thick] (srv) -- (sdata);
-\draw[-{Stealth},thick] (cli) -- (cdata);
-
-\draw[-{Stealth},thick] (cli) to[bend right=15] node[below,font=\tiny]{\code{GET /catalog} / \code{POST /ot/session} / \code{POST /ot/query}} (srv);
-\draw[-{Stealth},thick] (srv) to[bend right=15] node[above,font=\tiny]{Respuestas JSON (HTTP local)} (cli);
-
-\end{tikzpicture}
-\caption{Diagrama de despliegue local del sistema en una sola estaci\'on de trabajo.}
-\label{fig:despliegue-local}
-\end{figure}
+El flujo completo es: Importador $\to$ \code{catalog.json} y \code{keys.db}
+$\to$ Servidor; Cliente: \code{fetch-catalog} $\to$ \code{ot-query} $\to$
+descifrado local. El despliegue es local, como pide el enunciado: un servidor
+y un cliente por ejecuci\'on en la misma m\'aquina, con HTTP sobre
+\code{localhost:8000}.

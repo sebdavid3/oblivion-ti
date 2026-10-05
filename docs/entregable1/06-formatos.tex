@@ -1,17 +1,10 @@
 \section{Formatos y serializaci\'on}
 \label{sec:formatos}
 
-Para asegurar la interoperabilidad y evitar ambig\"uedades en la interpretaci\'on
-de los mensajes, se definen a continuaci\'on los esquemas de persistencia y de
-red, la codificaci\'on un\'ivoca de datos y las reglas de validaci\'on.
-
-Todos los valores binarios (nonces, textos cifrados y elementos de grupo serializados)
-se codifican mediante \code{base64url} sin relleno (\emph{unpadded}) conforme a la
-Secci\'on~5 del RFC~4648 \cite{rfc4648}. Los elementos del grupo \texttt{ristretto255}
-se representan estrictamente en su forma can\'onica de 32\,bytes (256 bits)
-seg\'un el RFC~9496 \cite{rfc9496}.
-
-\subsection{Estructuras de datos y mensajes}
+El cat\'alogo y los mensajes son JSON. Todo valor binario (nonces, textos
+cifrados y elementos de grupo) se codifica en \code{base64url} sin relleno
+(RFC~4648, \S5 \cite{rfc4648}). Los elementos de \texttt{ristretto255} viajan
+en su codificaci\'on can\'onica de 32\,B \cite{rfc9496}.
 
 \begin{table}[ht]
 \centering
@@ -25,7 +18,8 @@ Objeto & Campos y tipos exactos \\
 \code{group\_id} (texto, ``ristretto255''), \code{N} (entero),
 \code{record\_len} $=256$, \code{sha256\_root} (hex de 64 caracteres) y
 \code{records}: lista ordenada de objetos con \code{record\_id} (texto),
-\code{idx} ($1..N$), \code{nonce} (b64url de 12\,B) y \code{ct} (b64url de 272\,B). \\
+\code{idx} ($1..N$), \code{nonce} (b64url de 12\,B) y \code{ct} (b64url de 272\,B:
+registro cifrado m\'as tag). \\
 \code{SessionRequest} &
 \code{catalog\_version} (texto, p.~ej. ``v1''). \\
 \code{SessionResponse} &
@@ -40,54 +34,59 @@ Objeto & Campos y tipos exactos \\
 cifrada con tag). \\
 \bottomrule
 \end{tabularx}
-\caption{Formatos de persistencia y mensajes de red con tipado estricto.}
+\caption{Formatos de persistencia y mensajes de red.}
 \label{tab:formatos-mensajes}
 \end{table}
 
-\subsection{Codificaci\'on can\'onica y c\'alculo de huellas}
-Para prevenir ataques de extensi\'on o ambig\"uedades debidas a textos de longitud
-variable:
+\subsection{Codificaci\'on can\'onica y huella}
 \begin{enumerate}
-\item \textbf{Codificaci\'on inequ\'ivoca de $\mathsf{ctx}$:}
-Se compone anteponiendo a cada cadena de texto su longitud en 2 bytes sin signo
-(\emph{big-endian}):
+\item \textbf{Contexto $\mathsf{ctx}$:} cada cadena va precedida de su
+longitud en 2 bytes sin signo (\emph{big-endian}), para que la
+concatenaci\'on no sea ambigua:
 \begin{equation}
 \mathsf{ctx} = \mathrm{u16}(|\mathit{cat\_id}|)\Vert \mathit{cat\_id} \Vert
 \mathrm{u16}(|\mathit{ver}|)\Vert \mathit{ver} \Vert
 \mathrm{u16}(|\mathit{group}|)\Vert \mathit{group}
 \end{equation}
-\item \textbf{Codificaci\'on de $sid$ e \'indice $j$:}
-El identificador $sid$ se interpreta como sus 16 bytes binarios nativos
-(\code{bytes.fromhex(sid)}). El \'indice $j$ se codifica estrictamente como un
-entero sin signo de 32 bits en orden de red (\emph{big-endian}, 4 bytes):
-$\mathrm{format\_u32}(j) = j.\mathrm{to\_bytes}(4, \text{'big'})$.
-\item \textbf{Diferenciaci\'on de Datos Asociados ($AAD$):}
-\begin{align}
-AAD_{\mathrm{cat}, j} &= \mathsf{ctx} \Vert \mathrm{format\_u32}(j) \\
-AAD_{\mathrm{ot}, j} &= \mathsf{ctx} \Vert sid \Vert \mathrm{format\_u32}(j)
-\end{align}
-El dato asociado del cat\'alogo protege el registro en reposo; el de la sesi\'on
-OT vincula la clave transferida a la sesi\'on espec\'ifica y a la posici\'on $j$.
-\item \textbf{C\'alculo de \code{sha256\_root}:}
-Se define de forma determinista aplicando SHA-256 sobre la concatenaci\'on en
-orden ascendente de los bytes crudos de cada registro del cat\'alogo:
+\item \textbf{$sid$ e \'indice $j$:} $sid$ se usa como sus 16 bytes
+(\code{bytes.fromhex(sid)}) y el \'indice como entero sin signo de 32 bits
+en orden de red: $\mathrm{format\_u32}(j) = j.\mathrm{to\_bytes}(4, \text{'big'})$.
+Al ser ambos de longitud fija, las concatenaciones siguientes tampoco son
+ambiguas.
+\item \textbf{Datos asociados:}
+$AAD_{\mathrm{cat}, j} = \mathsf{ctx} \Vert \mathrm{format\_u32}(j)$ protege
+el registro en reposo, y
+$AAD_{\mathrm{ot}, j} = \mathsf{ctx} \Vert sid \Vert \mathrm{format\_u32}(j)$
+liga la clave transferida a la sesi\'on y a la posici\'on $j$.
+\item \textbf{Huella \code{sha256\_root}:} SHA-256 de la concatenaci\'on, en
+orden ascendente de $j$, de los bytes crudos de cada registro del cat\'alogo:
 \begin{equation}
-\code{sha256\_root} = \mathrm{SHA\text{-}256}\Big(\bigoplus_{j=1}^N (\mathit{nonce}_j \Vert C_j)\Big)
+\code{sha256\_root} = \mathrm{SHA\text{-}256}\big(\mathit{nonce}_1 \Vert C_1
+\Vert \mathit{nonce}_2 \Vert C_2 \Vert \cdots \Vert \mathit{nonce}_N \Vert C_N\big)
 \end{equation}
-El cliente verifica esta huella tras descargar \code{catalog.json}; si discrepa,
-aborta la ejecuci\'on.
+El cliente la recalcula tras descargar \code{catalog.json}; si no coincide,
+aborta.
 \end{enumerate}
 
 \subsection{Reglas de validaci\'on y rechazo}
 \begin{itemize}
-\item \textbf{Elementos de grupo mal formados:} Si al decodificar $u$ o $v$ desde
-b64url los 32 bytes no corresponden a un punto can\'onico v\'alido de
-\texttt{ristretto255} (RFC~9496, Ap\'endice~A.2), la petici\'on es rechazada con
-HTTP \code{400 Bad Request}.
-\item \textbf{Sesiones duplicadas o expiradas:} Si un $sid$ ya fue consumido o
-caduc\'o, el servidor responde con HTTP \code{409 Conflict} o \code{404 Not Found}.
-\item \textbf{Versi\'on incompatible:} Si la versi\'on del cat\'alogo no coincide
-con la del servidor, se devuelve HTTP \code{422 Unprocessable Entity}.
-\item \textbf{Invariancia del mapa \code{record\_id} a \code{idx}:} El mapeo
-p\'ublico entre identificador e \'indice no cambia dentro de la misma versi\'on.
+\item \textbf{Elementos de grupo mal formados:} si los 32 bytes de $u$ (en
+el servidor) o de $v$ (en el cliente) no son una codificaci\'on can\'onica
+v\'alida de \texttt{ristretto255} (reglas de decodificaci\'on de RFC~9496,
+\S4.3.1; vectores de prueba en su Ap\'endice~A.2), se rechazan: el servidor
+responde \code{400 Bad Request} y el cliente aborta. Lo mismo ocurre si $v$ o
+alg\'un $u_j$ es el elemento identidad, que la biblioteca se niega a
+multiplicar.
+\item \textbf{\'Indices inv\'alidos:} el \'indice nunca llega al servidor,
+as\'i que se valida solo en el cliente: si el \code{record\_id} no est\'a en
+el mapa p\'ublico o $i \notin [1,N]$, el cliente aborta antes de abrir
+sesi\'on. Tambi\'en rechaza una \code{OTResponse} que no traiga exactamente
+$N$ entradas con \code{idx} $= 1,\dots,N$ en orden.
+\item \textbf{Sesiones duplicadas o expiradas:} un $sid$ ya consumido recibe
+\code{409 Conflict}; uno desconocido o vencido, \code{404 Not Found}.
+\item \textbf{Versi\'on incompatible:} si \code{catalog\_version} no coincide
+con la del servidor, este responde \code{422 Unprocessable Entity} y el
+cliente debe volver a descargar el cat\'alogo.
+\item \textbf{Mapa \code{record\_id}--\code{idx}:} es p\'ublico, va dentro de
+\code{catalog.json} y no cambia dentro de una misma versi\'on.
 \end{itemize}

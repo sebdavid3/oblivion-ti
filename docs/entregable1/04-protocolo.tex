@@ -1,55 +1,51 @@
 \section{Estado del arte y protocolo derivado}
 \label{sec:protocolo}
 
-\subsection{Marco te\'orico y an\'alisis del estado del arte}
-El protocolo de transferencia inconsciente 1-de-$N$ (\emph{1-out-of-$N$ OT})
+\subsection{Marco te\'orico y estado del arte}
+Un protocolo de transferencia inconsciente 1-de-$N$ (\emph{1-out-of-$N$ OT})
 permite que un emisor con $N$ secretos $m_1,\dots,m_N$ interact\'ue con un
-receptor que posee un \'indice privado $i \in \{1,\dots,N\}$, de modo que al
-finalizar la ejecuci\'on el receptor aprenda $m_i$ sin obtener informaci\'on
-alguna sobre los restantes $N-1$ mensajes, mientras que el emisor no aprende
-absolutamente nada sobre el valor de $i$ \cite{boneh-shoup-v06}.
-
-En la literatura existen m\'ultiples aproximaciones para construir esquemas OT:
+receptor que tiene un \'indice privado $i \in \{1,\dots,N\}$, de modo que al
+terminar el receptor aprende $m_i$ y nada sobre los otros $N-1$ mensajes,
+mientras que el emisor no aprende nada sobre $i$ \cite{boneh-shoup-v06}.
+Las construcciones m\'as relevantes para este proyecto son:
 \begin{itemize}
-\item \textbf{Construcci\'on pedag\'ogica de Boneh y Shoup (\S11.6.1)
-\cite{boneh-shoup-v06}:} Propone un OT 1-de-$N$ derivado del cifrado ElGamal
-en un grupo c\'iclico de orden primo $G=\langle g\rangle$. El emisor sortea
-$\beta$ y publica $v = g^\beta$; el receptor camufla su \'indice calculando
-$u = g^\alpha \cdot v^{-i}$ con un escalar fresco $\alpha$; el emisor deriva
-$N$ claves p\'ublicas ElGamal impl\'icitas $u_j = u \cdot v^j$ y encripta cada
-mensaje reutilizando $\beta$. Con las salvaguardas de sesi\'on y AEAD sugeridas
-en el Remark~11.2, esta construcci\'on es limpia, rigurosa y verificable,
-siendo la referencia obligatoria adoptada en este proyecto.
-\item \textbf{Naor y Pinkas (2001, 2005) \cite{naor-pinkas-soda01,naor-pinkas-joc05}:}
-Permiten construir un OT 1-de-$N$ a partir de $\lceil \log_2 N \rceil$
-instancias paralelas de OT 1-de-2. Aunque optimizan el ancho de banda asint\'otico,
-introducen m\'as rondas de negociaci\'on y mayor complejidad de estado para
-el rango moderado de nuestro cat\'alogo ($N \in [500, 5000]$).
-\item \textbf{Tzeng (2002) \cite{tzeng-pkc02}:} Propone un esquema directo de
-una sola ronda; sin embargo, para garantizar la seguridad frente a receptores
-maliciosos requiere pruebas de conocimiento cero (ZKP) sobre la construcci\'on
-del mensaje del cliente, elevando la sobrecarga algor\'itmica.
-\item \textbf{Chou y Orlandi (2015) \cite{chou-orlandi-simplestOT}:} Dise\~nan
-un OT de alta velocidad (\emph{The Simplest OT}), pero su implementaci\'on en
-curvas el\'ipticas con cofactor $h>1$ exige un manejo cuidadoso de subgrupos
-para evitar fugas de bits, lo que motiva el uso de \texttt{ristretto255}.
-\item \textbf{OT adaptativo y OPRF de Boneh--Shoup (\S11.6.3--\S11.6.4):}
-Permiten evaluar funciones pseudoaleatorias inconscientes con costo de
-comunicaci\'on $O(1)$ por consulta; no obstante, el enunciado del proyecto las
-declara expresamente \emph{fuera de alcance}, exigiendo el protocolo Diffie-Hellman
-lineal pedag\'ogico.
+\item \textbf{Boneh y Shoup, \S11.6.1 \cite{boneh-shoup-v06}:} OT 1-de-$N$
+derivado del cifrado ElGamal en un grupo c\'iclico de orden primo
+$G=\langle g\rangle$. El emisor sortea $\beta$ y publica $v = g^\beta$; el
+receptor camufla su \'indice con $u = g^\alpha \cdot v^{-i}$ y un escalar
+fresco $\alpha$; el emisor deriva $N$ claves p\'ublicas ElGamal impl\'icitas
+$u_j = u \cdot v^j$ y cifra cada mensaje reutilizando $\beta$. Su seguridad
+b\'asica se apoya solo en CDH, en el modelo de or\'aculo aleatorio.
+\item \textbf{Naor y Pinkas \cite{naor-pinkas-soda01,naor-pinkas-joc05}:}
+construyen un OT 1-de-$N$ con $\lceil \log_2 N \rceil$ ejecuciones de OT
+1-de-2 (la idea del Ejercicio~11.19 de \cite{boneh-shoup-v06}). Reducen las
+operaciones de clave p\'ublica del emisor de $N$ a $O(\log N)$, pero la
+comunicaci\'on sigue siendo lineal (el emisor env\'ia igualmente $N$
+cifrados) y a\~naden estado y pasos que no compensan para $N \in [500, 5000]$.
+\item \textbf{Tzeng \cite{tzeng-pkc02}:} esquema directo con el mismo perfil
+que el adoptado (elecci\'on del receptor oculta de forma incondicional, 2
+exponenciaciones del receptor y $2N$ del emisor), pero el secreto del emisor
+descansa en DDH, un supuesto m\'as fuerte que CDH.
+\item \textbf{Chou y Orlandi \cite{chou-orlandi-simplestOT}:} OT muy r\'apido
+sobre curvas el\'ipticas (\emph{The Simplest OT}); en curvas con cofactor
+$h>1$ obliga a cuidar los subgrupos peque\~nos, lo que refuerza la elecci\'on
+de un grupo de orden primo como \texttt{ristretto255}.
+\item \textbf{OT adaptativo con OPRF (\S11.6.2--\S11.6.4
+\cite{boneh-shoup-v06}):} tras publicar el cat\'alogo cifrado una sola vez,
+cada consulta cuesta $O(1)$; el enunciado lo deja expresamente fuera de
+alcance.
 \end{itemize}
-
-Por estas razones, se descartan las alternativas anteriores y se adopta la
-construcci\'on de Boneh--Shoup \S11.6.1 con las extensiones del Remark~11.2.
+Se adopta la construcci\'on de \S11.6.1 con las modificaciones del
+Remark~11.2: es la referencia del proyecto, se apoya en el supuesto m\'as
+d\'ebil (CDH) y su costo lineal es manejable en este rango de $N$.
 
 \subsection{Especificaci\'on del protocolo adaptado}
 Sean $G = \langle g \rangle$ un grupo de orden primo $q$ (\texttt{ristretto255}),
-$\mathrm{HKDF}$ la funci\'on de derivaci\'on HKDF-SHA256 \cite{rfc5869-hkdf} y
-$\mathrm{AEAD}$ el cifrado AES-256-GCM \cite{nist-gcm}. Se define la cadena de
-contexto global $\mathsf{ctx}$ (ver Secci\'on~\ref{sec:formatos}).
-
-El protocolo se ejecuta en las siguientes fases:
+$\mathrm{HKDF}(\mathit{sal}, \mathit{secreto}, \mathit{info})$ la funci\'on
+HKDF-SHA256 \cite{rfc5869-hkdf}, $\mathrm{AEAD}$ el cifrado AES-256-GCM
+\cite{nist-gcm} y $\mathsf{ctx}$ la cadena de contexto de la
+Secci\'on~\ref{sec:formatos}. El Algoritmo~\ref{alg:ot-protocol} usa $K_j$
+como mensaje $m_j$: el OT entrega una clave y el registro se abre con ella.
 
 \begin{algorithm}[ht]
 \caption{Protocolo interactivo OT 1-de-$N$ para entrega privada de $K_i$}
@@ -61,7 +57,7 @@ El protocolo se ejecuta en las siguientes fases:
 \State \textbf{Fase 0 (Offline):} $C_j \gets \mathrm{AEAD.Enc}(K_j, \mathit{nonce}_j, record_j, \mathsf{ctx}\Vert \mathrm{format\_u32}(j))$. El cliente descarga $C$ entero.
 \State \textbf{Paso 1 (Inicio de sesi\'on):} Cliente invoca \code{POST /ot/session}. Servidor sortea $\beta \xleftarrow{R} \mathbb{Z}_q$, calcula $v \gets g^\beta \in G$,
 \State \quad genera $sid \xleftarrow{R} \{0,1\}^{128}$, guarda $(sid, \beta)$ (TTL 60\,s) y responde $(sid, v)$.
-\State \textbf{Paso 2 (Consulta OT):} Cliente sortea $\alpha \xleftarrow{R} \mathbb{Z}_q$, calcula $u \gets g^\alpha \cdot v^{-i} \in G$, env\'ia $(sid, u)$ a \code{POST /ot/query}.
+\State \textbf{Paso 2 (Consulta OT):} Cliente valida $v \in G$, sortea $\alpha \xleftarrow{R} \mathbb{Z}_q$, calcula $u \gets g^\alpha \cdot v^{-i}$, env\'ia $(sid, u)$ a \code{POST /ot/query}.
 \State \textbf{Paso 3 (Respuesta del emisor):} Servidor extrae y destruye $\beta$ para $sid$. Valida $u \in G$. Para $j = 1 \dots N$:
 \State \quad $u_j \gets u \cdot v^j$ ($u_0 = u, u_j = u_{j-1}\cdot v$); $Z_j \gets (u_j)^\beta$;
 \State \quad $k_j \gets \mathrm{HKDF}(\mathsf{ctx}, Z_j, \texttt{oblivion-ti/ot-v1}\Vert sid \Vert \mathrm{format\_u32}(j))$;
@@ -72,123 +68,85 @@ El protocolo se ejecuta en las siguientes fases:
 \end{algorithmic}
 \end{algorithm}
 
-En t\'erminos de red sobre HTTP, la interacci\'on comprende:
-(1) descarga en bloque de \code{catalog.json};
-(2) solicitud de sesi\'on (\code{POST /ot/session} $\to (sid, v)$); y
-(3) consulta OT (\code{POST /ot/query} $\to (sid, u)$ y respuesta con $\{E_j\}$).
+El protocolo es correcto porque $u_i = u\cdot v^i = g^\alpha$, de modo que
+$Z_i = (g^\alpha)^\beta = v^\alpha$ y ambas partes derivan la misma $k_i$.
 
-\begin{figure}[ht]
-\centering
-\small
-\begin{tikzpicture}[node distance=0.8cm, auto,
-  party/.style={rectangle,draw,minimum width=2.2cm,minimum height=0.7cm,align=center,font=\footnotesize},
-  msg/.style={font=\scriptsize}]
-\node[party] (r) {Receptor\\(Cliente $i$)};
-\node[party,right=4.2cm of r] (s) {Emisor\\(Servidor)};
-\draw[thick] (r.south) -- ++(0,-3.2);
-\draw[thick] (s.south) -- ++(0,-3.2);
+\subsection{Sesiones repetidas e interrumpidas}
+Cada $sid$ sirve para una sola consulta y tiene vida limitada.
+\textbf{Interrumpidas:} el par $(sid, \beta)$ se guarda en memoria con un
+tiempo de vida (\emph{TTL}) de 60 segundos; si el cliente se desconecta o no
+env\'ia el Paso~2 a tiempo, una tarea peri\'odica borra $\beta$ y ese $sid$
+pasa a responder \code{404 Not Found}. \textbf{Repetidas:} al atender el
+Paso~3 el servidor destruye $\beta$ y conserva solo la marca de
+\emph{consumido} hasta que vence el TTL; un segundo env\'io con el mismo
+$sid$ (\emph{replay}) recibe \code{409 Conflict}. Para reintentar, el cliente
+abre una sesi\'on nueva, con $\beta$, $v$ y $\alpha$ frescos; por eso dos
+consultas al mismo \'indice producen transcripciones distintas.
 
-\draw[-{Stealth}] ([yshift=-0.5cm]r.south) -- node[above,msg] {\code{POST /ot/session}} ([yshift=-0.5cm]s.south);
-\draw[-{Stealth}] ([yshift=-1.1cm]s.south) -- node[above,msg] {$(sid, v = g^\beta)$} ([yshift=-1.1cm]r.south);
-\draw[-{Stealth}] ([yshift=-1.8cm]r.south) -- node[above,msg] {\code{POST /ot/query}: $(sid, u = g^\alpha v^{-i})$} ([yshift=-1.8cm]s.south);
-\draw[-{Stealth}] ([yshift=-2.6cm]s.south) -- node[above,msg] {$\{E_j, \mathit{nonce}'_j\}_{j=1}^N$} ([yshift=-2.6cm]r.south);
-\end{tikzpicture}
-\caption{Diagrama de secuencia e interacci\'on de la sesi\'on OT.}
-\label{fig:diagrama-secuencia-ot}
-\end{figure}
+\subsection{Justificaci\'on de seguridad}
 
-\subsection{Manejo de sesiones repetidas e interrumpidas}
-El dise\~no resuelve de forma integral las sesiones interrumpidas y repetidas:
-\begin{itemize}
-\item \textbf{Sesiones interrumpidas:} Cuando el servidor genera $(sid, \beta, v)$
-en el Paso~1, almacena el par en una tabla en memoria con un tiempo l\'imite de
-vida (\emph{TTL}) fijado en 60 segundos. Si el cliente interrumpe la ejecuci\'on,
-se desconecta o sufre un fallo de red antes de enviar el Paso~2, la entrada
-caduca y $\beta$ es purgado autom\'aticamente, impidiendo fugas de memoria o
-acumulaci\'on de estados obsoletos.
-\item \textbf{Sesiones de un solo uso (\emph{single-use}):} Al procesar la consulta
-en el Paso~3, el servidor extrae $\beta$ y lo destruye de inmediato. Si un
-adversario o cliente reintenta enviar el mismo $sid$ (\emph{replay attack}),
-el servidor rechaza la petici\'on con error HTTP \code{409 Conflict} o
-\code{404 Not Found}.
-\end{itemize}
+\textbf{Privacidad del receptor (ocultamiento perfecto de $i$).}
+Lo \'unico que el servidor recibe y que depende de $i$ es
+$u = g^\alpha \cdot v^{-i}$. Como $G$ es c\'iclico de orden primo $q$ y
+$\alpha$ es uniforme en $\mathbb{Z}_q$ y no aparece en ning\'un otro mensaje,
+$g^\alpha$ es uniforme sobre $G$; multiplicar por el elemento fijo $v^{-i}$
+es una biyecci\'on de $G$, as\'i que $u$ tambi\'en es uniforme para cualquier
+$v$ e $i$. Act\'ua como una libreta de un solo uso (\emph{one-time pad}) en
+el exponente: la vista del servidor tiene la misma distribuci\'on para todo
+$i$ y la privacidad es incondicional (no depende de CDH ni del or\'aculo
+aleatorio).
 
-\subsection{Justificaci\'on rigurosa de seguridad}
-
-\subsubsection{Privacidad del receptor (ocultamiento perfecto de $i$)}
-La \'unica informaci\'on que el servidor recibe del cliente dependiente del
-\'indice $i$ es el elemento de grupo $u = g^\alpha \cdot v^{-i} \in G$.
-Dado que $G$ es un grupo c\'iclico de orden primo $q$ y que $\alpha$ es elegido
-por el cliente de forma estrictamente uniforme en $\mathbb{Z}_q$, la aplicaci\'on
-$\alpha \mapsto g^\alpha$ es un isomorfismo que distribuye $g^\alpha$ de forma
-uniforme sobre $G$. Como $v^{-i}$ es un elemento fijo de $G$, la operaci\'on
-$u = g^\alpha \cdot v^{-i}$ constituye una traslaci\'on biyectiva sobre $G$,
-actuando como una libreta de un solo uso (\emph{one-time pad}) en el exponente.
-Por lo tanto, para cualquier valor fijado de $v$ e $i$, $u$ es una variable
-aleatoria uniformemente distribuida sobre $G$. La vista del servidor es
-estad\'isticamente independiente de $i$, garantizando privacidad incondicional
-(te\'orica de la informaci\'on).
-
-\subsubsection{Privacidad del emisor (reducci\'on al problema CDH)}
-Para demostrar que el cliente no puede aprender m\'as de una clave sim\'etrica
-por ejecuci\'on, consideremos un adversario $\mathcal{A}$ capaz de derivar dos
-claves distintas $K_{j_1}$ y $K_{j_2}$ con $j_1 \ne j_2$. Bajo el modelo de
-or\'aculo aleatorio para $\mathrm{HKDF}$, $\mathcal{A}$ debe haber consultado
-los dos secretos $Z_{j_1}$ y $Z_{j_2}$, los cuales satisfacen:
+\textbf{Privacidad del emisor (reducci\'on a CDH).}
+Con HKDF modelada como or\'aculo aleatorio, para conocer $k_j$ el cliente
+debe consultar el or\'aculo en $Z_j$. Supongamos que lo logra para dos
+\'indices $j_1 \ne j_2$ en una misma sesi\'on. Como
+$Z_j = (u \cdot v^j)^\beta = u^\beta \cdot (v^\beta)^j$,
 \begin{equation}
-Z_{j_1} = (u \cdot v^{j_1})^\beta = u^\beta \cdot (v^\beta)^{j_1}, \qquad
-Z_{j_2} = (u \cdot v^{j_2})^\beta = u^\beta \cdot (v^\beta)^{j_2}
+\left( \frac{Z_{j_2}}{Z_{j_1}} \right)^{\Delta}
+= \left( (v^\beta)^{j_2 - j_1} \right)^{\Delta} = v^\beta = g^{\beta^2},
+\qquad \Delta = (j_2 - j_1)^{-1} \bmod q,
 \end{equation}
-Dividiendo ambos elementos en el grupo $G$:
-\begin{equation}
-\frac{Z_{j_2}}{Z_{j_1}} = \frac{u^\beta \cdot (v^\beta)^{j_2}}{u^\beta \cdot (v^\beta)^{j_1}} = (v^\beta)^{j_2 - j_1}
-\end{equation}
-Puesto que $j_1 \ne j_2$ y $1 \le |j_2 - j_1| < N < q$, la diferencia $(j_2 - j_1)$
-es invertible en $\mathbb{Z}_q$. Calculando la potencia con el inverso modular
-$\Delta = (j_2 - j_1)^{-1} \pmod q$:
-\begin{equation}
-\left( \frac{Z_{j_2}}{Z_{j_1}} \right)^\Delta = \left( (v^\beta)^{j_2 - j_1} \right)^{(j_2 - j_1)^{-1}} = v^\beta = (g^\beta)^\beta = g^{\beta^2}
-\end{equation}
-Por el Teorema~10.1 y el Ejercicio~10.17 de Boneh y Shoup \cite{boneh-shoup-v06},
-el problema de calcular $g^{\beta^2}$ a partir de $g^\beta$ (\emph{Squaring Diffie-Hellman})
-es computacionalmente equivalente al problema Computational Diffie-Hellman (CDH).
-En consecuencia, la existencia de un receptor capaz de abrir dos claves en una
-misma sesi\'on permitir\'ia romper el supuesto CDH en $G$.
+donde $\Delta$ existe porque $1 \le |j_2 - j_1| < N < q$. Ese cliente
+calcular\'ia $g^{\beta^2}$ a partir de $v = g^\beta$, problema que el
+Ejercicio~10.17 de \cite{boneh-shoup-v06} muestra equivalente a CDH en $G$.
+Por tanto, si CDH es dif\'icil, el cliente obtiene a lo sumo una clave por
+ejecuci\'on; las dem\'as $K_{j\ne i}$ viajan cifradas con AEAD bajo claves
+$k_j$ que no puede derivar.
 
-\subsubsection{Mitigaci\'on del ataque entre sesiones (Ejercicio 11.20 y Remark 11.2)}
-Si el servidor reusara el mismo par $(\beta, v)$ en m\'ultiples consultas sin
-vinculaci\'on de sesi\'on, un cliente que conoci\'o $Z_i = v^\alpha$ para la
-consulta de $i$ podr\'ia enviar en una segunda consulta el valor manipulado
-$\hat{u} = u \cdot v$. El servidor computar\'ia $\hat{u}_j = \hat{u}\cdot v^j = u\cdot v^{j+1} = u_{j+1}$,
-lo que provocar\'ia que $\hat{Z}_{i-1} = Z_i$. El cliente podr\'ia descifrar
-la encapsulaci\'on $\hat{E}_{i-1}$ utilizando el secreto que ya conoc\'ia,
-aprendiendo un segundo registro sin autorizaci\'on.
-
-Esta vulnerabilidad queda totalmente neutralizada en nuestro dise\~no:
+\textbf{Instancias concurrentes (Ejercicio~11.20 y Remark~11.2).}
+La construcci\'on original deriva la clave como $H(v, Z_j)$ y usa un cifrado
+sin autenticaci\'on. Un intermediario situado entre un receptor y un emisor
+honestos puede reenviar los mensajes cambiando solo $u$ por
+$\hat{u} = u \cdot v$: el emisor calcula
+$\hat{u}_j = u\cdot v^{j+1} = u_{j+1}$, de modo que el secreto que el
+receptor conoce ($Z_i = v^\alpha$) pasa a proteger el mensaje de la
+posici\'on $i-1$, y el receptor puede terminar aceptando $m_{i-1}$ como si
+fuera $m_i$. El dise\~no aplica las dos correcciones del Remark~11.2:
 \begin{enumerate}
-\item \textbf{Escalar ef\'imero fresco:} Cada sesi\'on $sid$ genera un $\beta$
-nuevo e independiente, haciendo que $v$ sea impredecible y no correlacionable.
-\item \textbf{Separaci\'on de dominios en HKDF:} La derivaci\'on incluye
-$sid$ e \'indice $j$ en el par\'ametro \code{info}, produciendo claves $k_j$
-disjuntas aun si hubiera coincidencias algebraicas en $Z_j$.
-\item \textbf{Autenticaci\'on v\'ia AEAD:} Las encapsulaciones $E_j$ incluyen
-$AAD_{\mathrm{ot}, j} = \mathsf{ctx}\Vert sid\Vert \mathrm{format\_u32}(j)$.
-Cualquier intento de abrir un $E_j$ de otra sesi\'on falla deterministamente
-con \code{InvalidTag}.
+\item \textbf{Vinculaci\'on en la derivaci\'on:} la sal de HKDF es
+$\mathsf{ctx}$ y el \code{info} incluye $sid$ y el \'indice $j$; la clave que
+el servidor usa para la posici\'on $i-1$ nunca coincide con la que el cliente
+deriva para $i$, aunque los secretos $Z$ coincidan.
+\item \textbf{Cifrado autenticado de un solo uso:} cada $k_j$ cifra una sola
+vez y con $AAD_{\mathrm{ot}, j}$. Ante el ataque, el cliente no recibe un
+registro equivocado: abrir $E_i$ falla con \code{InvalidTag}.
 \end{enumerate}
+Adem\'as, $\beta$ es fresco en cada sesi\'on y se destruye al usarse, as\'i
+que lo aprendido en una sesi\'on no sirve en otra.
 
-\subsection{Conteo exacto de operaciones y costos}
-El conteo preciso de operaciones algebraicas en el grupo $G$ es:
+\subsection{Costo lineal}
+El servidor no sabe qu\'e \'indice interesa, as\'i que debe tratar igual las
+$N$ posiciones: en esta construcci\'on, procesar o enviar menos de $N$
+revelar\'ia informaci\'on sobre $i$. De ah\'i el costo $O(N)$ por consulta:
 \begin{itemize}
-\item \textbf{Cliente (Receptor):} Realiza exactamente \textbf{3 exponenciaciones}
-(c\'alculo de $g^\alpha$, c\'alculo de $v^{-i}$ y c\'alculo de $Z_i = v^\alpha$)
-y \textbf{1 multiplicaci\'on} ($g^\alpha \cdot v^{-i}$). Su costo computacional
-es $O(1)$.
-\item \textbf{Servidor (Emisor):} Realiza exactamente \textbf{$N+1$ exponenciaciones}
-(1 para $v = g^\beta$ y $N$ para calcular cada $Z_j = u_j^\beta$) y \textbf{$N$ multiplicaciones}
-de grupo (reconstrucci\'on de $u_j = u_{j-1}\cdot v$ con $u_0 = u$). Su costo
-computacional es $O(N)$.
-\item \textbf{Sobrecarga de red:} El cliente transmite 48\,B en la petici\'on
-($sid$ de 16\,B y $u$ de 32\,B). El servidor transmite $48 + 60N$\,bytes en la
-respuesta ($sid$, $v$ y $N$ encapsulaciones de 48\,B con nonces de 12\,B).
+\item \textbf{Cliente:} 3 exponenciaciones ($g^\alpha$, $v^{-i}$ y
+$Z_i = v^\alpha$) y 1 multiplicaci\'on de grupo; costo $O(1)$.
+\item \textbf{Servidor:} $N+1$ exponenciaciones ($v = g^\beta$ y los $N$
+valores $Z_j = u_j^\beta$), $N$ multiplicaciones ($u_j = u_{j-1}\cdot v$),
+$N$ derivaciones HKDF y $N$ cifrados AEAD.
+\item \textbf{Red:} en carga binaria, la petici\'on lleva 48\,B ($sid$ de
+16\,B y $u$ de 32\,B) y la respuesta $60N$\,B ($N$ encapsulaciones de 48\,B
+con nonce de 12\,B). Serializadas en JSON con base64url
+(Secci\'on~\ref{sec:formatos}) pesan unos 96\,B y $\approx 111N$\,B; la
+descarga inicial del cat\'alogo pesa $\approx 438N$\,B.
 \end{itemize}
