@@ -51,7 +51,7 @@
 \begin{document}
 \maketitle
 \begin{abstract}
-En este trabajo se dise\~na un sistema para que un analista consulte un indicador de amenazas (IoC) dentro del cat\'alogo de un proveedor sin revelar cu\'al seleccion\'o. El proveedor publica un cat\'alogo est\'atico de $N \in \{500, 1000, 2500, 5000\}$ registros sint\'eticos normalizados a 256\,B, cada uno cifrado con una clave sim\'etrica independiente $K_j$ mediante AEAD. Para no filtrar el \'indice de inter\'es mediante peticiones individuales en la red, el cliente descarga inicialmente el cat\'alogo cifrado completo en bloque (\emph{bulk}) y luego ejecuta un protocolo interactivo de transferencia inconsciente (OT) 1-de-$N$ basado en Diffie-Hellman, derivado de la construcci\'on pedag\'ogica de Boneh y Shoup (\S11.6.1) con las mitigaciones frente a ataques entre sesiones del Remark~11.2. El esquema garantiza privacidad perfecta (te\'orica de la informaci\'on) para el receptor y privacidad del emisor condicionada a la dificultad del problema CDH en el modelo de or\'aculo aleatorio, asegurando que el cliente solo obtenga la clave $K_i$. Se define la arquitectura de software sobre \code{ristretto255}, HKDF-SHA256 y AES-256-GCM con vinculaci\'on estricta de contexto, un protocolo de sesi\'on con manejo de interrupciones, y un plan de experimentaci\'on frente a una l\'inea base HTTP convencional.
+En este trabajo se dise\~na un sistema para que un analista consulte un indicador de amenazas (IoC) del cat\'alogo de un proveedor sin revelar cu\'al seleccion\'o. El proveedor publica un cat\'alogo versionado de $N \in \{500, 1000, 2500, 5000\}$ registros sint\'eticos de 256\,B, cada uno cifrado con una clave sim\'etrica independiente $K_j$ mediante AEAD. Para no delatar el \'indice con una petici\'on individual, el cliente descarga el cat\'alogo cifrado completo y luego ejecuta un protocolo de transferencia inconsciente (OT) 1-de-$N$ basado en Diffie-Hellman, derivado de la construcci\'on de Boneh y Shoup (\S11.6.1) con las modificaciones del Remark~11.2, que le entrega \'unicamente la clave $K_i$. El esquema da privacidad perfecta (te\'orica de la informaci\'on) al receptor y privacidad del emisor bajo el supuesto CDH en el modelo de or\'aculo aleatorio. Se especifican los mensajes y formatos sobre \code{ristretto255}, HKDF-SHA256 y AES-256-GCM con vinculaci\'on de cat\'alogo, versi\'on, sesi\'on e \'indice; la arquitectura de software; el manejo de sesiones repetidas e interrumpidas; y un plan de pruebas y de medici\'on frente a una l\'inea base HTTP convencional.
 \end{abstract}
 
 %\tableofcontents
@@ -65,7 +65,6 @@ En este trabajo se dise\~na un sistema para que un analista consulte un indicado
 \input{06-formatos}
 \input{07-primitivas}
 \input{08-pruebas}
-\input{09-glosario}
 
 \bibliographystyle{plainnat}
 \bibliography{refs}

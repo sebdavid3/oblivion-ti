@@ -1,53 +1,38 @@
 \section{Propiedades de seguridad}
 \label{sec:propiedades}
-Nombres que usamos desde aqu\'i (ver Secci\'on~\ref{sec:protocolo}):
-$N$ es el tama\~no del cat\'alogo, $i\in[1,N]$ el \'indice elegido,
-$K_j$ la clave del registro $j$,
-$\mathsf{ctx}$ el contexto inmutable que concatena de forma can\'onica
+Nombres que usamos desde aqu\'i: $N$ es el tama\~no del cat\'alogo,
+$i\in[1,N]$ el \'indice elegido, $K_j$ la clave del registro $j$ y $C_j$ su
+texto cifrado, $\mathsf{ctx}$ el contexto que concatena de forma can\'onica
 $\mathit{catalog\_id}$, $\mathit{version}$ y $\mathit{group\_id}$, y
-$sid\in\{0,1\}^{128}$ el identificador \'unico de sesi\'on fresca.
-
-El sistema debe satisfacer formalmente tres propiedades:
+$sid\in\{0,1\}^{128}$ el identificador de una sesi\'on fresca. El sistema
+debe cumplir tres propiedades, que se justifican en la
+Secci\'on~\ref{sec:protocolo}:
 
 \begin{enumerate}
-\item \textbf{Privacidad del receptor (selecci\'on oculta perfecta):}
-Para cualesquiera dos \'indices $i_0, i_1 \in \{1,\dots,N\}$, la vista del
-servidor es perfectamente indistinguible:
-$\mathrm{Vista}_S(i_0) \equiv \mathrm{Vista}_S(i_1)$.
-En nuestro protocolo, el mensaje $u = g^\alpha \cdot v^{-i}$ con $\alpha$
-escogido uniformemente al azar en $\mathbb{Z}_q$ est\'a uniformemente
-distribuido sobre el grupo $G$, enmascarando $i$ como una libreta de un solo
-uso en el exponente. El servidor aprende exactamente cero informaci\'on sobre
-$i$ en el sentido de la teor\'ia de la informaci\'on.
+\item \textbf{Privacidad del receptor (selecci\'on oculta, perfecta):}
+para cualesquiera dos \'indices $i_0, i_1 \in \{1,\dots,N\}$ la vista del
+servidor tiene la misma distribuci\'on:
+$\mathrm{Vista}_S(i_0) \equiv \mathrm{Vista}_S(i_1)$. El mensaje
+$u = g^\alpha \cdot v^{-i}$, con $\alpha$ uniforme en $\mathbb{Z}_q$, es
+uniforme sobre el grupo $G$, as\'i que el servidor aprende cero informaci\'on
+sobre $i$ en el sentido de la teor\'ia de la informaci\'on.
 
-\item \textbf{Privacidad del emisor (transferencia \'unica bajo CDH):}
-El cliente aprende $K_i$ y no obtiene informaci\'on computable sobre ninguna de
-las dem\'as claves $\{K_{j\ne i}\}$.
-Si un cliente malicioso pudiera extraer dos claves distintas en una sola
-ejecuci\'on, podr\'ia calcular $v^\beta = g^{\beta^2}$, lo cual es
-computacionalmente equivalente a resolver el problema Computational
-Diffie-Hellman (CDH) en $G$ (seg\'un el Ejercicio~10.17 del libro
-\cite{boneh-shoup-v06}), adem\'as de tener que romper el or\'aculo aleatorio
-asociado a HKDF.
+\item \textbf{Privacidad del emisor (una sola clave por ejecuci\'on, bajo
+CDH):} el cliente aprende $K_i$ y no obtiene informaci\'on computable sobre
+las dem\'as claves $\{K_{j\ne i}\}$. Un cliente que abriera dos claves en una
+misma ejecuci\'on podr\'ia calcular $g^{\beta^2}$ a partir de $g^\beta$, lo
+que equivale a resolver el problema Computational Diffie-Hellman (CDH) en
+$G$ (Ejercicio~10.17 de \cite{boneh-shoup-v06}), con HKDF modelada como
+or\'aculo aleatorio.
 
-\item \textbf{Integridad, autenticidad y vinculaci\'on de contexto:}
-Cualquier modificaci\'on no autorizada es detectada inmediatamente por el
-cifrado autenticado (AEAD), arrojando la excepci\'on \code{InvalidTag}. Para
-evitar ataques de confusi\'on de dominio o de traslaci\'on entre sesiones, se
-definen dos datos asociados ($AAD$) diferenciados:
-\begin{itemize}
-\item \textbf{Dato asociado del cat\'alogo:}
-$AAD_{\mathrm{cat}, j} = \mathsf{ctx}\Vert \mathrm{format\_u32}(j)$, utilizado
-al cifrar cada registro $C_j$ de forma offline (no contiene $sid$ porque el
-cat\'alogo es est\'atico e independiente de las sesiones).
-\item \textbf{Dato asociado de la sesi\'on OT:}
-$AAD_{\mathrm{ot}, j} = \mathsf{ctx}\Vert sid\Vert \mathrm{format\_u32}(j)$,
-utilizado al encapsular cada clave $E_j$, ligando la respuesta a la sesi\'on
-activa y al \'indice de posici\'on.
-\end{itemize}
-Asimismo, la huella $\mathrm{sha256}$ de la colecci\'on de textos cifrados
-permite al cliente verificar que el cat\'alogo no haya sido alterado antes de
-iniciar cualquier consulta.
+\item \textbf{Integridad y vinculaci\'on de contexto:} toda modificaci\'on
+de un registro cifrado o de una clave encapsulada se detecta con el cifrado
+autenticado (AEAD), que lanza \code{InvalidTag}. Para evitar confusiones de
+dominio o traslados entre sesiones se usan dos datos asociados distintos:
+$AAD_{\mathrm{cat}, j} = \mathsf{ctx}\Vert \mathrm{format\_u32}(j)$ al cifrar
+cada registro $C_j$ (sin $sid$, porque el cat\'alogo es est\'atico), y
+$AAD_{\mathrm{ot}, j} = \mathsf{ctx}\Vert sid\Vert \mathrm{format\_u32}(j)$
+al encapsular cada clave $E_j$, que queda ligada al cat\'alogo, la versi\'on,
+la sesi\'on y la posici\'on. Adem\'as, la huella \code{sha256\_root} permite
+detectar una descarga corrupta o truncada antes de consultar.
 \end{enumerate}
-Las justificaciones matem\'aticas detalladas se presentan en la
-Secci\'on~\ref{sec:protocolo}.

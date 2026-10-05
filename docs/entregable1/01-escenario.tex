@@ -14,27 +14,17 @@ fija (\textbf{256\,B} fijado; rango permitido 128--512) con
 $N\in\{500,1000,2500,5000\}$. Cada registro se cifra con su propia clave
 $K_j$ usando AEAD (cifrado que protege el contenido y detecta si alguien lo
 modific\'o). El analista descarga el cat\'alogo cifrado \emph{completo} una
-sola vez (fase \emph{bulk}, es decir, todo de una vez) y despu\'es abre
-exactamente un registro con un protocolo OT 1-de-$N$ basado en
-Diffie-Hellman, que solo le entrega la clave $K_i$ que necesita.
+sola vez (fase \emph{bulk}) y despu\'es abre exactamente un registro con un
+protocolo OT 1-de-$N$ basado en Diffie-Hellman, que solo le entrega la clave
+$K_i$ que necesita.
 
-Los registros son sint\'eticos y de prueba: no son amenazas reales, solo
-sirven para demostrar el protocolo. El Importador los crea con una semilla
-fija (\code{seed=42}) para que cualquiera pueda repetir el mismo cat\'alogo.
-Cada registro tiene seis campos con formato fijo: \code{record\_id} como
-\code{ioc-2026-XXXX} seg\'un su posici\'on; \code{ip} rotando en el rango de
-documentaci\'on \code{203.0.113.0/24} \cite{rfc5737}; \code{hash} como \code{sha256:} m\'as
-64 d\'igitos hexadecimales aleatorios; \code{asn} como \code{AS64500} m\'as un
-desplazamiento peque\~no (\code{idx mod 14}); \code{ts} como fecha ISO en UTC
-a partir de \code{2026-09-25T11:00:00Z} sumando un minuto por registro; y
-\code{pad} con ceros. El registro se serializa a JSON compacto con claves
-ordenadas en UTF-8, donde \code{pad} es un campo de texto cuyo largo se
-ajusta para que el JSON total mida exactamente 256\,B (si el contenido se
-pasa, el Importador da error y no recorta). As\'i todos los registros quedan
-del mismo tama\~no y el tama\~no no filtra cu\'al se pidi\'o. Despu\'es el
-Importador genera una clave $K_j$ por registro, lo cifra y guarda
-\code{catalog.json} + \code{keys.db}, como se detalla en las
-Secciones~\ref{sec:arquitectura} y~\ref{sec:formatos}.
+Los registros son sint\'eticos: no son amenazas reales. El Importador los
+crea con una semilla fija (\code{seed=42}) para que cualquiera pueda repetir
+el mismo cat\'alogo, con los seis campos del Cuadro~\ref{tab:registro}. Cada
+registro se serializa a JSON compacto con claves ordenadas en UTF-8, y el
+largo de \code{pad} se ajusta para que el JSON total mida exactamente 256\,B
+(si el contenido se pasa, el Importador da error y no recorta). As\'i todos
+los registros miden lo mismo y el tama\~no no filtra cu\'al se pidi\'o.
 
 \begin{table}[ht]
 \centering
@@ -44,14 +34,15 @@ Secciones~\ref{sec:arquitectura} y~\ref{sec:formatos}.
 Campo & Formato y ejemplo \\
 \midrule
 \code{record\_id} & \code{ioc-2026-0042} (consecutivo seg\'un \code{idx}) \\
-\code{ip} & \code{203.0.113.45} (rango de ejemplo, no real) \\
-\code{hash} & \code{sha256:9f2c...} (64 hex aleatorios, no real) \\
-\code{asn} & \code{AS64500} (m\'as \code{idx mod 14}) \\
-\code{ts} & \code{2026-09-25T11:00:00Z} m\'as un minuto por \code{idx} \\
+\code{ip} & \code{203.0.113.45} (rota en el rango de documentaci\'on \code{203.0.113.0/24} \cite{rfc5737}) \\
+\code{hash} & \code{sha256:9f2c...} (64 d\'igitos hexadecimales aleatorios) \\
+\code{asn} & \code{AS64500} m\'as un desplazamiento peque\~no (\code{idx mod 14}) \\
+\code{ts} & fecha ISO en UTC: \code{2026-09-25T11:00:00Z} m\'as un minuto por \code{idx} \\
 \code{pad} & ceros hasta completar 256\,B exactos \\
 \bottomrule
 \end{tabularx}
-\caption{Ejemplo de registro sint\'etico antes de cifrar. El JSON compacto ordenado m\'as \code{pad} suma siempre 256\,B.}
+\caption{Campos de un registro sint\'etico antes de cifrar.}
+\label{tab:registro}
 \end{table}
 
 \subsection{Soluci\'on a alto nivel}
@@ -59,7 +50,7 @@ Campo & Formato y ejemplo \\
 \item \textbf{Importador:} crea IoCs de prueba $\to$ los rellena hasta 256\,B
 $\to$ genera una clave $K_j$ por registro y lo cifra
 ($C_j=\mathrm{AEAD.Enc}(K_j,\cdot)$) $\to$ guarda
-\code{catalog.json} + \code{keys.db} (solo los tiene el servidor).
+\code{catalog.json} + \code{keys.db} (este \'ultimo solo lo tiene el servidor).
 \item \textbf{Descarga bulk:} el cliente descarga $C=(C_1,\dots,C_N)$ entero.
 Si pidiera un solo registro, el servidor sabr\'ia cu\'al le interesa.
 \item \textbf{Sesi\'on OT:} en dos mensajes Diffie-Hellman el servidor le

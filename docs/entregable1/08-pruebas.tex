@@ -1,79 +1,78 @@
 \section{Plan de pruebas y experimentaci\'on}
 \label{sec:pruebas}
 
-Este plan define c\'omo se demostrar\'a la correcci\'on funcional, la seguridad
-frente a manipulaciones y el desempe\~no emp\'irico del sistema (cuya implementaci\'on
-y medici\'on final se presentar\'a en el Entregable~2).
+Este plan define c\'omo se demostrar\'a la correcci\'on funcional, la
+seguridad frente a manipulaciones y el desempe\~no del sistema; la
+implementaci\'on y las mediciones se presentar\'an en el Entregable~2. Todas
+las pruebas del Cuadro~\ref{tab:plan-pruebas} ser\'an automatizadas.
 
 \begin{table}[ht]
 \centering
 \small
-\begin{tabularx}{\textwidth}{@{}l p{5cm} X@{}}
+\begin{tabularx}{\textwidth}{@{}l p{6.2cm} X@{}}
 \toprule
 Tipo & Acci\'on de prueba & Comportamiento esperado \\
 \midrule
 Casos v\'alidos &
 Pedir el primer registro ($i=1$), el \'ultimo ($i=N$) y varios al azar;
-repetir el mismo $i$ con nueva sesi\'on. &
-El registro descifrado coincide byte a byte con el original; los mensajes
-de red $(sid, u, v, E)$ son distintos en cada ejecuci\'on. \\
-Casos inv\'alidos &
-Intentar descifrar $K_{j\ne i}$ usando $Z_i$; enviar un punto $u$ no
-can\'onico; consultar un \'indice fuera de rango ($i \le 0$ o $i > N$);
-reutilizar un $sid$ ya consumido; solicitar una versi\'on inexistente. &
-AEAD rechaza con excepci\'on \code{InvalidTag}; el servidor responde con
-errores HTTP 400 (\emph{Bad Request}), 409 (\emph{Conflict}) o 422
-(\emph{Unprocessable Entity}). \\
+repetir el mismo $i$ con una sesi\'on nueva. &
+El registro descifrado coincide byte a byte con el original; $sid$, $u$, $v$
+y $\{E_j\}$ son distintos en cada ejecuci\'on. \\
+Claves no pedidas &
+Intentar abrir $E_{j\ne i}$ con la clave derivada de $Z_i$. &
+AEAD rechaza con \code{InvalidTag}. \\
+Entradas inv\'alidas &
+Enviar un $u$ no can\'onico; reutilizar un $sid$ ya consumido; usar un $sid$
+vencido; pedir una versi\'on inexistente; pedir un \code{record\_id}
+inexistente o un \'indice fuera de $[1,N]$. &
+HTTP 400, 409, 404 y 422, en ese orden. El \'indice inv\'alido lo rechaza el
+cliente sin enviar nada, porque el servidor nunca ve $i$. \\
 Manipulaci\'on &
-Modificar un bit en el cat\'alogo $C_j$, en una encapsulaci\'on $E_j$, o
-en los datos asociados $AAD$. &
-La verificaci\'on de \code{sha256\_root} detecta el cambio en el cat\'alogo,
-o el tag AEAD rechaza el descifrado (\code{InvalidTag}). \\
+Cambiar un bit en un registro $C_j$ del cat\'alogo, en una encapsulaci\'on
+$E_j$, en un nonce o en los datos asociados. &
+\code{sha256\_root} detecta el cambio en el cat\'alogo y el tag AEAD rechaza
+los dem\'as (\code{InvalidTag}). \\
 Ataque de desfase &
-Reenviar $\hat u = u \cdot v$ (ataque del Ej.~11.20) en una segunda sesi\'on. &
-El servidor genera un $\beta$ fresco y la vinculaci\'on de $sid \Vert j$ en
-HKDF y $AAD$ impide abrir el registro adyacente; el descifrado falla. \\
+Un proxy entre cliente y servidor sustituye $u$ por $\hat u = u \cdot v$
+(Ej.~11.20); en una variante, adem\'as desplaza una posici\'on la lista de
+encapsulaciones. &
+El cliente no acepta ning\'un registro: abrir $E_i$ falla con
+\code{InvalidTag} en ambas variantes. \\
 \bottomrule
 \end{tabularx}
-\caption{Matriz del plan de pruebas funcionales, negativas y de manipulaci\'on.}
+\caption{Plan de pruebas funcionales, negativas y de manipulaci\'on.}
 \label{tab:plan-pruebas}
 \end{table}
 
-\subsection{Metodolog\'ia de experimentaci\'on y medici\'on}
-Para contrastar el costo de la privacidad frente a la consulta ordinaria, se
-evaluar\'an cat\'alogos de $N \in \{500, 1000, 2500, 5000\}$ registros de 256\,B
-en la misma estaci\'on de trabajo, comparando el modo OT con la l\'inea base HTTP
-convencional.
+\subsection{Metodolog\'ia de experimentaci\'on}
+Para medir el costo de ocultar la selecci\'on se evaluar\'an cat\'alogos de
+$N \in \{500, 1000, 2500, 5000\}$ registros de 256\,B, comparando el modo OT
+con la l\'inea base HTTP en la misma m\'aquina: una estaci\'on x86\_64
+(Intel Core i7 o AMD Ryzen con AES-NI, 16\,GB de RAM) con Python~3.11. Los
+tiempos se toman con \code{time.perf\_counter\_ns()}, con 5 repeticiones por
+configuraci\'on para reportar media y desviaci\'on est\'andar.
 
-\textbf{Entorno de medici\'on:}
-Las pruebas se ejecutar\'an en una estaci\'on con procesador x86\_64 (Intel Core
-i7 / AMD Ryzen con instrucciones vectoriales y aceleraci\'on AES-NI), 16\,GB de
-memoria RAM, sobre Python~3.11 en entorno local cerrado. Los tiempos se registrar\'an
-con el temporizador monot\'onico de alta precisi\'on \code{time.perf\_counter\_ns()},
-ejecutando 5 repeticiones por cada configuraci\'on para reportar media y
-desviaci\'on est\'andar.
-
-Un script automatizado (\code{bench.py}) registrar\'a en archivos CSV:
-(1) tiempo de respuesta de extremo a extremo;
-(2) tiempo de c\'omputo en el cliente y en el servidor;
-(3) conteo de operaciones de grupo en \texttt{ristretto255} (en el cliente:
-exactamente 3 exponenciaciones y 1 multiplicaci\'on; en el servidor: $N+1$
-exponenciaciones y $N$ multiplicaciones); y
-(4) volumen de bytes de la petici\'on, respuesta y descarga en bloque previa.
+Un script (\code{bench.py}) registrar\'a en CSV: (1) latencia de extremo a
+extremo; (2) tiempo de c\'omputo en cliente y servidor; (3) operaciones de
+grupo (cliente: 3 exponenciaciones y 1 multiplicaci\'on; servidor: $N+1$ y
+$N$); y (4) bytes de la petici\'on, la respuesta y la descarga inicial. El
+Cuadro~\ref{tab:plantilla-experimentos} adelanta los tama\~nos esperados
+seg\'un los formatos de la Secci\'on~\ref{sec:formatos}; el Entregable~2
+los contrastar\'a con lo medido.
 
 \begin{table}[ht]
 \centering
 \small
-\begin{tabularx}{\textwidth}{@{}r X X X X@{}}
+\begin{tabularx}{\textwidth}{@{}r X X X X X@{}}
 \toprule
-$N$ & Tiempo OT (ms) & Tiempo normal (ms) & Datos OT (KB) & Datos normal (KB) \\
+$N$ & Descarga inicial & Petici\'on OT & Respuesta OT & Respuesta normal & Latencia (ms) \\
 \midrule
-500  & \emph{A registrar en E2} & \emph{A registrar en E2} & $\approx 30$\,KB  & $\approx 0.3$\,KB \\
-1000 & \emph{A registrar en E2} & \emph{A registrar en E2} & $\approx 60$\,KB  & $\approx 0.3$\,KB \\
-2500 & \emph{A registrar en E2} & \emph{A registrar en E2} & $\approx 150$\,KB & $\approx 0.3$\,KB \\
-5000 & \emph{A registrar en E2} & \emph{A registrar en E2} & $\approx 300$\,KB & $\approx 0.3$\,KB \\
+500  & $\approx 0.22$\,MB & 96\,B & $\approx 55$\,KB  & $\approx 0.3$\,KB & \emph{A medir en E2} \\
+1000 & $\approx 0.44$\,MB & 96\,B & $\approx 111$\,KB & $\approx 0.3$\,KB & \emph{A medir en E2} \\
+2500 & $\approx 1.10$\,MB & 96\,B & $\approx 279$\,KB & $\approx 0.3$\,KB & \emph{A medir en E2} \\
+5000 & $\approx 2.19$\,MB & 96\,B & $\approx 559$\,KB & $\approx 0.3$\,KB & \emph{A medir en E2} \\
 \bottomrule
 \end{tabularx}
-\caption{Plantilla para el reporte de resultados experimentales en el Entregable 2.}
+\caption{Tama\~nos estimados de los cuerpos JSON (sin cabeceras HTTP) y plantilla para las latencias OT y normal del Entregable~2.}
 \label{tab:plantilla-experimentos}
 \end{table}
