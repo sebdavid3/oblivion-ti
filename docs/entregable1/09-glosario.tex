@@ -1,23 +1,29 @@
 \section{Glosario de s\'imbolos}
 \label{sec:glosario}
-Resumen de letras para no perderse.
 
-\begin{table}[ht]
+Para facilitar la lectura y unificar la notaci\'on utilizada a lo largo del
+documento, en el Cuadro~\ref{tab:glosario-simbolos} se resume la nomenclatura
+formal de par\'ametros y variables.
+
+\begin{table}[!ht]
 \centering
 \small
 \begin{tabularx}{\textwidth}{@{}l X@{}}
 \toprule
-S\'imbolo & Qu\'e es \\
+S\'imbolo & Descripci\'on formal \\
 \midrule
-$G,g,q$ & Grupo de n\'umeros para Diffie-Hellman, con generador $g$ y orden primo $q$. \\
-$N,i,j$ & Tama\~no del cat\'alogo; \'indice pedido $i$; \'indice cualquiera $j$. \\
-$K_j,C_j$ & Clave del registro $j$ y registro ya cifrado. \\
-$\beta,v$ & N\'umero al azar del emisor y $v=g^\beta$. \\
-$\alpha,u$ & N\'umero al azar del receptor y $u=g^\alpha v^{-i}$. \\
-$sid$ & N\'umero de sesi\'on nuevo en cada consulta (128 bits). \\
-$\mathsf{ctx}$ & Contexto: id del cat\'alogo, versi\'on y grupo usado. \\
-$u_j,Z_j,k_j,E_j$ & Clave p\'ublica del registro $j$, secreto DH, clave derivada y clave envuelta. \\
-$H,\mathrm{KDF}$ & Funci\'on hash (ideal) y HKDF-SHA256 para sacar claves. \\
+$G, g, q$ & Grupo algebraico c\'iclico (\texttt{ristretto255}), generador can\'onico $g$ y orden primo $q = 2^{252}+\dots$ \\
+$N, i, j$ & Cantidad total de registros ($500 \dots 5000$); \'indice solicitado $i$; e \'indice de iteraci\'on $j$. \\
+$K_j, C_j$ & Clave sim\'etrica AES-256 del registro $j$ y texto cifrado de 256\,B m\'as tag ($272$\,B en total). \\
+$\beta, v$ & Escalar secreto ef\'imero del emisor ($\beta \in \mathbb{Z}_q$) y par\'ametro p\'ublico de sesi\'on ($v = g^\beta \in G$). \\
+$\alpha, u$ & Escalar secreto del receptor ($\alpha \in \mathbb{Z}_q$) y elemento de consulta enmascarado ($u = g^\alpha v^{-i} \in G$). \\
+$sid$ & Identificador fresco de sesi\'on de 128 bits (16\,bytes, representado en hexadecimal). \\
+$\mathsf{ctx}$ & Cadena de contexto global inmutable con prefijos de longitud: cat\'alogo, versi\'on y grupo. \\
+$AAD_{\mathrm{cat}}, AAD_{\mathrm{ot}}$ & Datos asociados: $\mathsf{ctx}\Vert j$ para registros y $\mathsf{ctx}\Vert sid\Vert j$ para encapsulaciones. \\
+$u_j, Z_j, k_j, E_j$ & Clave p\'ublica impl\'icita ($u\cdot v^j$), secreto DH ($u_j^\beta$), clave derivada HKDF y clave envuelta. \\
+$\mathrm{HKDF}, \mathrm{AEAD}$ & Funci\'on de derivaci\'on HKDF-SHA256 (RFC~5869) y cifrador autenticado AES-256-GCM (SP~800-38D). \\
 \bottomrule
 \end{tabularx}
+\caption{Glosario formal de s\'imbolos y variables del protocolo.}
+\label{tab:glosario-simbolos}
 \end{table}

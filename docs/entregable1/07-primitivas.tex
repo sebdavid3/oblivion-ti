@@ -1,35 +1,69 @@
 \section{Selecci\'on de bibliotecas y primitivas}
 \label{sec:primitivas}
-Qu\'e herramientas usamos y por qu\'e, en una tabla.
+
+La elecci\'on de herramientas criptogr\'aficas obedece a criterios de rigor
+matem\'atico, seguridad frente a ataques de canal lateral y soporte de operaciones
+de grupo espec\'ificas.
 
 \begin{table}[ht]
 \centering
 \small
 \begin{tabularx}{\textwidth}{@{}l l X@{}}
 \toprule
-Para qu\'e & Qu\'e usamos & Por qu\'e \\
+Para qu\'e & Qu\'e usamos & Por qu\'e t\'ecnico y justificaci\'on \\
 \midrule
 Grupo matem\'atico &
-\textbf{ristretto255} (RFC~9496), con P-256 de repuesto &
-Es un grupo de orden primo sin elementos extra que causan errores;
-trae validaci\'on incluida y vectores de prueba (App.~A.1/A.2).
-Evita errores conocidos (Chou Secci\'on~3, caso Monero). \\
-Sacar claves &
-\textbf{HKDF-SHA256} con $salt{=}\mathsf{ctx}$ &
-Convierte el secreto Diffie-Hellman en clave; mezcla el id del
-cat\'alogo para no cruzar claves entre versiones; el \code{info} lleva
-dominio \code{oblivion-ti/ot-v1} m\'as sesi\'on e \'indice. \\
-Cifrar &
-\textbf{AES-256-GCM} &
-Cifra y a la vez detecta cambios; el dato asociado ata
-cat\'alogo, sesi\'on e \'indice; nonce de 96 bits \'unico; si algo
-cambi\'o, falla con \code{InvalidTag}. \\
-Programas &
-\code{cryptography} y \code{PyNaCl} recientes &
-Bibliotecas mantenidas con instalaci\'on f\'acil; grupo v\'ia Ristretto o
-curva est\'andar de repuesto; web con \code{FastAPI} y consola con
-\code{Typer}. \\
+\textbf{ristretto255} (RFC~9496 \cite{rfc9496}) &
+Grupo c\'iclico de orden estrictamente primo $q=2^{252}+\dots$ ($h=1$). Elimina
+el cofactor 8 de Curve25519 y neutraliza ataques de confinamiento de subgrupo
+peque\~no y maleabilidad de puntos \cite{chou-orlandi-simplestOT}. Trae codificaci\'on
+can\'onica biyectiva de 32\,B y validaci\'on nativa (Ap\'endices A.1/A.2). \\
+Derivar claves &
+\textbf{HKDF-SHA256} (RFC~5869 \cite{rfc5869-hkdf}) &
+Transforma el secreto Diffie-Hellman $Z_j$ en clave de 256 bits. El $salt = \mathsf{ctx}$
+evita reutilizaci\'on entre cat\'alogos o versiones; el \code{info} ata el dominio
+\code{"oblivion-ti/ot-v1"}, el $sid$ y el \'indice $j$ en 32 bits. \\
+Cifrado sim\'etrico &
+\textbf{AES-256-GCM} (NIST SP 800-38D \cite{nist-gcm}) &
+Cifrado autenticado (AEAD) con tag de 128 bits; nonces \'unicos de 96 bits.
+El dato asociado ata contexto e \'indice ($AAD_{\mathrm{cat}}$ y $AAD_{\mathrm{ot}}$).
+Cualquier alteraci\'on arroja \code{InvalidTag}. \\
+Bibliotecas &
+\code{PyNaCl} y \code{cryptography} &
+Implementaciones probadas y mantenidas. \code{PyNaCl} provee las operaciones
+de punto de Ristretto255; \code{cryptography} aporta AES-GCM y HKDF acelerados
+por hardware. \\
 \bottomrule
 \end{tabularx}
+\caption{Selecci\'on formal de primitivas criptogr\'aficas y justificaci\'on t\'ecnica.}
+\label{tab:seleccion-primitivas}
 \end{table}
-% TODO(equipo): fijar requirements.txt exacto en E2; aqu\'i basta la tabla.
+
+\subsection{An\'alisis del grupo el\'iptico y descarte de P-256 en Python}
+Se analiz\'o inicialmente la posibilidad de utilizar la curva est\'andar
+\textbf{NIST P-256} como alternativa de repuesto al ser de orden primo ($h=1$).
+Sin embargo, se determin\'o que \textbf{P-256 no es viable en la biblioteca
+\code{cryptography}} para este protocolo. La API de curvas el\'ipticas de
+\code{cryptography} (\code{cryptography.hazmat.primitives.asymmetric.ec}) est\'a
+dise\~nada exclusivamente para intercambio ECDH de alto nivel y firmas ECDSA;
+no expone operaciones aritm\'eticas arbitrarias sobre puntos de la curva, tales
+como la suma de dos puntos p\'ublicos ($u_j = u \cdot v^j$) ni la multiplicaci\'on
+escalar de un punto arbitrario por un escalar independiente.
+
+Por el contrario, la biblioteca \textbf{\code{PyNaCl}} (enlace a \code{libsodium})
+expone directamente la interfaz de bajo nivel de \texttt{ristretto255} a trav\'es de
+sus bindings (\code{nacl.bindings.crypto\_core\_ristretto255\_add} y
+\code{nacl.bindings.crypto\_core\_ristretto255\_scalarmult}), permitiendo
+ejecutar la suma de puntos y la multiplicaci\'on escalar en tiempo constante de
+forma nativa, segura y eficiente.
+
+\subsection{Versiones fijadas del ecosistema de dependencias}
+Para garantizar la reproducibilidad completa del producto de software, se fijan
+las versiones m\'inimas en el entorno:
+\begin{itemize}
+\item \code{pynacl >= 1.5.0}: Soporte nativo y probado de primitivas Ristretto255.
+\item \code{cryptography >= 42.0.0}: Implementaci\'on de AES-256-GCM y HKDF con backend OpenSSL~3.
+\item \code{fastapi >= 0.110.0} y \code{uvicorn >= 0.28.0}: Servidor HTTP as\'incrono de alto rendimiento.
+\item \code{typer >= 0.9.0} y \code{rich >= 13.7.0}: Interfaz de l\'inea de comandos tipada con salida estructurada.
+\item \code{pydantic >= 2.6.0}: Validaci\'on estricta de esquemas de datos y mensajes.
+\end{itemize}

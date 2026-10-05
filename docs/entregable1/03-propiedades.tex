@@ -3,25 +3,51 @@
 Nombres que usamos desde aqu\'i (ver Secci\'on~\ref{sec:protocolo}):
 $N$ es el tama\~no del cat\'alogo, $i\in[1,N]$ el \'indice elegido,
 $K_j$ la clave del registro $j$,
-$\mathsf{ctx}=\mathit{catalog\_id}\Vert\mathit{version}\Vert\mathit{group\_id}$
-el contexto (qu\'e cat\'alogo, qu\'e versi\'on, qu\'e grupo) y
-$sid\in\{0,1\}^{128}$ el n\'umero de sesi\'on.
+$\mathsf{ctx}$ el contexto inmutable que concatena de forma can\'onica
+$\mathit{catalog\_id}$, $\mathit{version}$ y $\mathit{group\_id}$, y
+$sid\in\{0,1\}^{128}$ el identificador \'unico de sesi\'on fresca.
+
+El sistema debe satisfacer formalmente tres propiedades:
 
 \begin{enumerate}
-\item \textbf{El servidor no sabe qu\'e pediste.}
-Para cualquier par $i,j$ lo que ve el servidor es indistinguible:
-$\mathrm{Vista}_S(i)\approx \mathrm{Vista}_S(j)$.
-En nuestro protocolo $u=g^\alpha v^{-i}$ con $\alpha$ nuevo parece un
-elemento al azar del grupo, as\'i que esconde $i$ por completo.
-\item \textbf{El cliente solo abre uno.}
-El cliente aprende $K_i$ y nada de las dem\'as $\{K_{j\ne i}\}$.
-Si pudiera sacar dos claves, estar\'ia resolviendo el problema
-Diffie-Hellman (argumento $v^\beta=g^{\beta^2}$, Ej.~10.17 del libro),
-adem\'as de romper la derivaci\'on de claves y el cifrado.
-\item \textbf{Si algo se modifica, se detecta.}
-Cualquier cambio en $C_j$, $E_j$, $\mathsf{ctx}$, $sid$ o $j$ hace que el
-descifrado falle (error \code{InvalidTag}), porque el dato asociado
-$AAD=\mathsf{ctx}\Vert sid\Vert j$ y la huella $\mathrm{sha256}$ del
-cat\'alogo ya no coinciden.
+\item \textbf{Privacidad del receptor (selecci\'on oculta perfecta):}
+Para cualesquiera dos \'indices $i_0, i_1 \in \{1,\dots,N\}$, la vista del
+servidor es perfectamente indistinguible:
+$\mathrm{Vista}_S(i_0) \equiv \mathrm{Vista}_S(i_1)$.
+En nuestro protocolo, el mensaje $u = g^\alpha \cdot v^{-i}$ con $\alpha$
+escogido uniformemente al azar en $\mathbb{Z}_q$ est\'a uniformemente
+distribuido sobre el grupo $G$, enmascarando $i$ como una libreta de un solo
+uso en el exponente. El servidor aprende exactamente cero informaci\'on sobre
+$i$ en el sentido de la teor\'ia de la informaci\'on.
+
+\item \textbf{Privacidad del emisor (transferencia \'unica bajo CDH):}
+El cliente aprende $K_i$ y no obtiene informaci\'on computable sobre ninguna de
+las dem\'as claves $\{K_{j\ne i}\}$.
+Si un cliente malicioso pudiera extraer dos claves distintas en una sola
+ejecuci\'on, podr\'ia calcular $v^\beta = g^{\beta^2}$, lo cual es
+computacionalmente equivalente a resolver el problema Computational
+Diffie-Hellman (CDH) en $G$ (seg\'un el Ejercicio~10.17 del libro
+\cite{boneh-shoup-v06}), adem\'as de tener que romper el or\'aculo aleatorio
+asociado a HKDF.
+
+\item \textbf{Integridad, autenticidad y vinculaci\'on de contexto:}
+Cualquier modificaci\'on no autorizada es detectada inmediatamente por el
+cifrado autenticado (AEAD), arrojando la excepci\'on \code{InvalidTag}. Para
+evitar ataques de confusi\'on de dominio o de traslaci\'on entre sesiones, se
+definen dos datos asociados ($AAD$) diferenciados:
+\begin{itemize}
+\item \textbf{Dato asociado del cat\'alogo:}
+$AAD_{\mathrm{cat}, j} = \mathsf{ctx}\Vert \mathrm{format\_u32}(j)$, utilizado
+al cifrar cada registro $C_j$ de forma offline (no contiene $sid$ porque el
+cat\'alogo es est\'atico e independiente de las sesiones).
+\item \textbf{Dato asociado de la sesi\'on OT:}
+$AAD_{\mathrm{ot}, j} = \mathsf{ctx}\Vert sid\Vert \mathrm{format\_u32}(j)$,
+utilizado al encapsular cada clave $E_j$, ligando la respuesta a la sesi\'on
+activa y al \'indice de posici\'on.
+\end{itemize}
+Asimismo, la huella $\mathrm{sha256}$ de la colecci\'on de textos cifrados
+permite al cliente verificar que el cat\'alogo no haya sido alterado antes de
+iniciar cualquier consulta.
 \end{enumerate}
-% TODO(equipo): no demostrar aqu\'i; las razones van en S4.
+Las justificaciones matem\'aticas detalladas se presentan en la
+Secci\'on~\ref{sec:protocolo}.

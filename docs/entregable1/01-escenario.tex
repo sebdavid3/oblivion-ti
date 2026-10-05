@@ -23,7 +23,7 @@ sirven para demostrar el protocolo. El Importador los crea con una semilla
 fija (\code{seed=42}) para que cualquiera pueda repetir el mismo cat\'alogo.
 Cada registro tiene seis campos con formato fijo: \code{record\_id} como
 \code{ioc-2026-XXXX} seg\'un su posici\'on; \code{ip} rotando en el rango de
-documentaci\'on \code{203.0.113.0/24}; \code{hash} como \code{sha256:} m\'as
+documentaci\'on \code{203.0.113.0/24} \cite{rfc5737}; \code{hash} como \code{sha256:} m\'as
 64 d\'igitos hexadecimales aleatorios; \code{asn} como \code{AS64500} m\'as un
 desplazamiento peque\~no (\code{idx mod 14}); \code{ts} como fecha ISO en UTC
 a partir de \code{2026-09-25T11:00:00Z} sumando un minuto por registro; y
@@ -71,8 +71,9 @@ datos, y as\'i medir cu\'anto cuesta ocultar la selecci\'on.
 \end{enumerate}
 
 \begin{center}
-\begin{tikzpicture}[node distance=2.4cm, auto,
-  box/.style={rectangle,draw,rounded corners,minimum width=2.6cm,minimum height=1cm,align=center}]
+\small
+\begin{tikzpicture}[node distance=1.6cm, auto,
+  box/.style={rectangle,draw,rounded corners,minimum width=2.2cm,minimum height=0.7cm,align=center,font=\footnotesize}]
 \node[box] (imp) {Importador};
 \node[box,right=of imp] (srv) {Servidor\\(emisor OT)};
 \node[box,right=of srv] (cli) {Cliente\\(CLI)};

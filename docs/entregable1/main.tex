@@ -1,12 +1,13 @@
+%! TEX root = ./main.tex
 % Entregable 1 — Consulta privada de inteligencia de amenazas mediante OT
 % Pegar en Overleaf como proyecto nuevo. Compila con pdfLaTeX: pdfLaTeX -> BibTeX -> pdfLaTeX x2.
 \documentclass[11pt,a4paper]{article}
-\usepackage[a4paper,left=2cm,right=2cm,top=2.2cm,bottom=2.2cm]{geometry}
+\usepackage[a4paper,left=1.8cm,right=1.8cm,top=1.8cm,bottom=1.8cm]{geometry}
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage{lmodern}
 \usepackage[spanish]{babel}
-\AtBeginDocument{\shorthandoff{<>}}
+\AtBeginDocument{\shorthandoff{<>"}}
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
 \usepackage{tabularx}
@@ -15,11 +16,32 @@
 \usetikzlibrary{arrows.meta,positioning,shapes}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
+\floatname{algorithm}{Algoritmo}
+\renewcommand{\algorithmicrequire}{\textbf{Entrada:}}
+\renewcommand{\algorithmicensure}{\textbf{Salida:}}
 \usepackage[hidelinks]{hyperref}
 \usepackage[numbers,sort&compress]{natbib}
+\setlength{\bibsep}{1.5pt}
+\renewcommand{\bibfont}{\footnotesize}
+\usepackage{titlesec}
+\titlespacing*{\section}{0pt}{6pt plus 1pt minus 1pt}{2pt plus 1pt minus 1pt}
+\titlespacing*{\subsection}{0pt}{4pt plus 1pt minus 1pt}{2pt plus 1pt minus 1pt}
+\titlespacing*{\subsubsection}{0pt}{3pt plus 1pt minus 1pt}{1pt plus 1pt minus 1pt}
+\usepackage{enumitem}
+\setlist{nosep, leftmargin=1.5em, topsep=1.5pt, parsep=0.5pt}
+
+% Parámetros para mejor aprovechamiento del espacio (6-8 páginas)
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.8}
+\renewcommand{\textfraction}{0.1}
+\renewcommand{\floatpagefraction}{0.85}
+\setlength{\floatsep}{6pt plus 2pt minus 2pt}
+\setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
+\setlength{\intextsep}{6pt plus 2pt minus 2pt}
+\setlength{\parskip}{1.5pt plus 1pt}
 
 \setlength{\emergencystretch}{3em}
-\renewcommand{\arraystretch}{1.15}
+\renewcommand{\arraystretch}{1.1}
 \newcommand{\code}[1]{\texttt{#1}}
 
 \title{Consulta privada de inteligencia de amenazas mediante Oblivious Transfer\\ \large Entregable 1: Dise\~no y estado del arte (Proyecto 8)}
@@ -29,20 +51,11 @@
 \begin{document}
 \maketitle
 \begin{abstract}
-TODO(equipo, 10 l\'ineas): un analista consulta 1 de $N$ indicadores de
-amenazas sin revelar cu\'al. El proveedor publica un cat\'alogo versionado
-de $N\in\{500,1000,2500,5000\}$ registros de 256\,B, cada uno cifrado con
-clave independiente $K_j$ y AEAD. El cliente descarga el cat\'alogo cifrado
-\emph{completo} (fase \emph{bulk}) para no filtrar su inter\'es y luego ejecuta
-un OT 1-de-$N$ Diffie-Hellman (Boneh--Shoup \S11.6.1 + Remark~11.2) que entrega
-solo la clave $K_i$. Privacidad del receptor perfecta, del emisor bajo CDH en
-modelo de or\'aculo aleatorio, integridad v\'ia AEAD y HKDF con binding de
-cat\'alogo, versi\'on, sesi\'on e \'indice. Se incluye l\'inea base HTTP y plan
-de medici\'on del costo lineal $O(N)$ frente a la consulta convencional.
+En este trabajo se dise\~na un sistema para que un analista consulte un indicador de amenazas (IoC) dentro del cat\'alogo de un proveedor sin revelar cu\'al seleccion\'o. El proveedor publica un cat\'alogo est\'atico de $N \in \{500, 1000, 2500, 5000\}$ registros sint\'eticos normalizados a 256\,B, cada uno cifrado con una clave sim\'etrica independiente $K_j$ mediante AEAD. Para no filtrar el \'indice de inter\'es mediante peticiones individuales en la red, el cliente descarga inicialmente el cat\'alogo cifrado completo en bloque (\emph{bulk}) y luego ejecuta un protocolo interactivo de transferencia inconsciente (OT) 1-de-$N$ basado en Diffie-Hellman, derivado de la construcci\'on pedag\'ogica de Boneh y Shoup (\S11.6.1) con las mitigaciones frente a ataques entre sesiones del Remark~11.2. El esquema garantiza privacidad perfecta (te\'orica de la informaci\'on) para el receptor y privacidad del emisor condicionada a la dificultad del problema CDH en el modelo de or\'aculo aleatorio, asegurando que el cliente solo obtenga la clave $K_i$. Se define la arquitectura de software sobre \code{ristretto255}, HKDF-SHA256 y AES-256-GCM con vinculaci\'on estricta de contexto, un protocolo de sesi\'on con manejo de interrupciones, y un plan de experimentaci\'on frente a una l\'inea base HTTP convencional.
 \end{abstract}
 
-\tableofcontents
-\newpage
+%\tableofcontents
+\vspace{0.5em}
 
 \input{01-escenario}
 \input{02-adversario}

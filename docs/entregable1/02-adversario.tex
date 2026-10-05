@@ -1,7 +1,8 @@
 \section{Modelo de adversario}
 \label{sec:adversario}
-Aqu\'i definimos contra qui\'en nos defendemos: qu\'e puede intentar cada
-parte y qu\'e queda fuera del modelo.
+Aqu\'i definimos contra qui\'en nos defendemos: qu\'e capacidades tiene cada
+actor, qu\'e canal se asume, c\'omo se separa la privacidad de los metadatos y
+qu\'e aspectos quedan fuera del modelo.
 
 \begin{table}[ht]
 \centering
@@ -11,27 +12,64 @@ parte y qu\'e queda fuera del modelo.
 Actor & Se porta as\'i & Qu\'e intenta \\
 \midrule
 Servidor & Cumple el protocolo pero es curioso &
-Sigue los pasos, pero intenta adivinar el $i$ mirando los mensajes
-$(u,\{E_j\})$. No lo logra si el problema DH es dif\'icil. \\
+Sigue los pasos honestamente, pero intenta deducir el \'indice $i$ analizando
+el mensaje $u$. No lo logra porque $u$ oculta $i$ de forma perfecta
+(incondicional), sin depender de ning\'un supuesto computacional. \\
 Cliente & Quiere m\'as de lo permitido &
-Cumple para pedir, pero intenta sacar $K_j$ de\'indices que no pidi\'o
-($j\ne i$) con una sola respuesta. No puede sin romper el problema DH. \\
+Cumple la sintaxis de petici\'on, pero intenta sacar $K_j$ de \'indices que no
+pidi\'o ($j\ne i$) con una sola respuesta. No puede lograrlo sin romper el
+supuesto CDH en el modelo de or\'aculo aleatorio. \\
 Red & Esp\'ia y modifica &
-Mira el tr\'afico o cambia bytes. Cualquier cambio debe ser detectado
-por el cifrado AEAD y el control de versi\'on. \\
+Observa el tr\'afico o altera bytes. Cualquier cambio es detectado por el
+cifrado AEAD y los datos asociados vinculados. \\
 \bottomrule
 \end{tabularx}
 \caption{Modelo de adversario del sistema.}
+\label{tab:modelo-adversario}
 \end{table}
 
-\textbf{Supuestos y l\'imites del modelo}:
-(i)~PIR, extensi\'on de OT, OT adaptativo con OPRF ni bases de millones de
-registros;
-(ii)~clientes o servidores totalmente tramposos (solo cubrimos servidor
-curioso que cumple el protocolo y cliente que pide de m\'as; si el servidor
-manda datos falsos solo lo detectamos por integridad, como en el ejemplo de
-los art\'iculos vac\'ios de la Secci\'on~11.6.4 del libro);
-(iii)~pruebas de seguridad para cualquier combinaci\'on de programas
-(componibilidad);
-(iv)~ocultar IP, frecuencia, momento o volumen de consultas, ni pagos o
-licenciamiento real.
+\subsection{Canal seguro y separaci\'on de metadatos}
+El protocolo de Boneh--Shoup \cite{boneh-shoup-v06} asume formalmente que las
+partes se comunican sobre un canal seguro. En nuestro sistema, para pruebas y
+evaluaci\'on local se utiliza HTTP sobre \code{localhost} (apoy\'andose en AEAD
+a nivel de aplicaci\'on para la integridad de los datos), mientras que en un
+despliegue en red se requiere HTTPS (TLS~1.3) para evitar la observaci\'on
+externa de identificadores o patrones de tr\'afico.
+
+Adem\'as, tal como exige el enunciado, es indispensable separar con claridad la
+\textbf{privacidad criptogr\'afica} de la informaci\'on revelada por los
+metadatos de comunicaci\'on:
+\begin{itemize}
+\item \textbf{Privacidad criptogr\'afica:} Garantiza matem\'aticamente que el
+servidor aprende cero informaci\'on sobre el \'indice $i$ consultado a partir de
+los mensajes del protocolo OT, y que el cliente solo puede abrir la clave
+correspondiente a dicho \'indice.
+\item \textbf{Metadatos de red (IP, tiempo y frecuencia):} El protocolo no
+oculta la direcci\'on IP de origen (que revela qu\'e empresa consulta), el
+momento exacto de la petici\'on (que podr\'ia correlacionarse con una alerta
+en el SOC del cliente), ni la frecuencia de consultas. El volumen transferido
+tampoco se oculta, aunque al descargar el cat\'alogo completo en bloque se
+evita filtrar el registro espec\'ifico. La protecci\'on contra an\'alisis de
+tr\'afico requerir\'ia mecanismos complementarios (redes de anonimato como Tor
+o generaci\'on de consultas se\~nuelo a intervalos regulares).
+\end{itemize}
+
+\subsection{L\'imites del modelo y exclusiones expl\'icitas}
+Quedan expl\'icitamente \textbf{fuera del alcance} del sistema:
+\begin{enumerate}
+\item \textbf{T\'ecnicas avanzadas sublineales:} PIR, extensi\'on de OT, OT
+adaptativo con OPRF ni cat\'alogos de millones de registros (el dise\~no se
+enfoca en $N\in[500,5000]$ con OT lineal).
+\item \textbf{Servidores totalmente maliciosos:} Servidores que entreguen datos
+falsos o vac\'ios de manera selectiva. Como advierten Boneh y Shoup
+(\S11.6.4), un servidor malicioso podr\'ia dejar en blanco los art\'iculos de
+cierta secci\'on para averiguar si el cliente se queja; mitigar esto exigir\'ia
+pruebas de conocimiento cero que est\'an fuera de alcance. La autenticidad se
+limita a verificar la integridad de lo recibido v\'ia AEAD y la huella del
+cat\'alogo.
+\item \textbf{Seguridad componible:} Pruebas de seguridad bajo composici\'on
+universal arbitraria (UC-security).
+\item \textbf{Anonimato de red y licenciamiento:} Ocultamiento de IP,
+frecuencia, momento o volumen de consultas, as\'i como pasarelas de pago o
+sistemas de cobro real.
+\end{enumerate}
